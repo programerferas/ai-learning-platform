@@ -1,0 +1,236 @@
+/* ─── Wrapper ─────────────────────────────────────────────── */
+.avatar-dropdown {
+  position: relative;
+}
+
+/* ─── Trigger Button ──────────────────────────────────────── */
+.avatar-dropdown__trigger {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1e1e24 10%, #050505 60%);
+  background-size: 200% 200%;
+  animation: avatar-gradient-shift 5s ease-in-out infinite;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+  z-index: 0;
+}
+
+/* Glow layers */
+.avatar-dropdown__trigger::before,
+.avatar-dropdown__trigger::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 0% 0%,   hsl(27deg 50% 50%), transparent),
+    radial-gradient(circle at 100% 0%,  #c19025,            transparent),
+    radial-gradient(circle at 0% 100%,  #D3AB4C,            transparent),
+    radial-gradient(circle at 100% 100%, #7A5915,           transparent);
+}
+
+.avatar-dropdown__trigger::after {
+  --size: 2px;
+  top: calc(var(--size) / -2);
+  left: calc(var(--size) / -2);
+  width: calc(100% + var(--size));
+  height: calc(100% + var(--size));
+  z-index: -1;
+}
+
+.avatar-dropdown__trigger::before {
+  --size: 10px;
+  top: calc(var(--size) / -2);
+  left: calc(var(--size) / -2);
+  width: calc(100% + var(--size));
+  height: calc(100% + var(--size));
+  z-index: -2;
+  filter: blur(6px);
+  animation: avatar-blur 3s ease-in-out alternate infinite;
+}
+
+/* Letter */
+.avatar-dropdown__trigger span {
+  background-image: linear-gradient(to bottom, #626262, #ffffff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1;
+  user-select: none;
+}
+
+/* ─── Trigger open state — stronger glow ─────────────────── */
+.avatar-dropdown__trigger--open::before {
+  filter: blur(10px);
+}
+
+/* ─── Dropdown Menu ───────────────────────────────────────── */
+.avatar-dropdown__menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  min-width: 220px;
+  background: #0f0d14;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 16px 40px rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  animation: dropdown-in 0.15s ease;
+}
+
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Header ──────────────────────────────────────────────── */
+.avatar-dropdown__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 12px;
+}
+
+/* Small avatar in header */
+.avatar-dropdown__avatar-lg {
+  position: relative;
+  color: #ffffff;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-size: 200% 200%;
+  animation: avatar-gradient-shift 5s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 0;
+}
+
+.avatar-dropdown__avatar-lg::before {
+  content: "";
+  position: absolute;
+  --size: 8px;
+  top: calc(var(--size) / -2);
+  left: calc(var(--size) / -2);
+  width: calc(100% + var(--size));
+  height: calc(100% + var(--size));
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 0% 0%,   hsl(27deg 50% 50%), transparent),
+    radial-gradient(circle at 100% 0%,  #c19025,            transparent),
+    radial-gradient(circle at 0% 100%,  #D3AB4C,            transparent),
+    radial-gradient(circle at 100% 100%, #7A5915,           transparent);
+  z-index: -1;
+  filter: blur(4px);
+}
+
+.avatar-dropdown__avatar-lg span {
+  background-image: linear-gradient(#ffffff);
+  
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+}
+
+/* User info */
+.avatar-dropdown__user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.avatar-dropdown__name {
+  color: #f2f2e1;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avatar-dropdown__email {
+  color: rgba(242, 242, 225, 0.35);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Divider ─────────────────────────────────────────────── */
+.avatar-dropdown__divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 4px 0;
+}
+
+/* ─── Menu Items ──────────────────────────────────────────── */
+.avatar-dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  color: rgba(242, 242, 225, 0.8);
+  text-decoration: none;
+  font-size: 13px;
+  border-radius: 9px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.avatar-dropdown__item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+.avatar-dropdown__item svg {
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.avatar-dropdown__item:hover svg {
+  opacity: 1;
+}
+
+.avatar-dropdown__item--danger {
+  color: rgba(224, 112, 112, 0.8);
+}
+
+.avatar-dropdown__item--danger:hover {
+  background: rgba(224, 112, 112, 0.08);
+  color: #e07070;
+}
+
+/* ─── Animations ──────────────────────────────────────────── */
+@keyframes avatar-gradient-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes avatar-blur {
+  to {
+    filter: blur(10px);
+    transform: scale(1.08);
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path . -Recurse -Directory -Depth 1 -Exclude node_modules | Where-Object { $_.FullName -notmatch 'node_modules' } | Select-Object FullName)"
+    ]
+  }
+}

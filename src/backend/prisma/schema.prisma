@@ -1,0 +1,207 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  name         String
+  createdAt    DateTime      @default(now())
+  password     String
+  phoneNumber  String?
+  updatedAt    DateTime      @updatedAt
+  role         Role          @default(STUDENT)
+  isVerified   Boolean       @default(false)
+  verifyToken  String?       @unique
+  verifyTokenExpires DateTime?
+  chatSessions ChatSession[]
+  courses      Course[]      @relation("InstructorCourses")
+  enrollments  Enrollment[]
+  reviews      Review[]
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+}
+
+model PendingUser {
+  id                 String   @id @default(uuid())
+  email              String
+  name               String
+  password           String
+  phoneNumber        String?
+  verifyToken        String  @unique
+  verifyTokenExpires DateTime
+  lastSentAt         DateTime?  
+  createdAt          DateTime @default(now())
+
+  
+  @@index([email])              
+  @@index([verifyTokenExpires])
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  slug      String   @unique
+  thumbnail String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  courses   Course[]
+}
+
+model Course {
+  id           String       @id @default(uuid())
+  title        String
+  description  String
+  // اختياري لأن العمود في قاعدة البيانات يقبل NULL وفيه صفوف قديمة بلا صورة
+  thumbnail    String?
+  instructorId String?
+  instructor   User?   @relation("InstructorCourses", fields: [instructorId], references: [id], onDelete: SetNull)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  level        CourseLevel
+  published    Boolean      @default(false)
+  slug         String       @unique
+  categoryId   String?
+  category     Category?   @relation(fields: [categoryId], references: [id])
+  enrollments  Enrollment[]
+  lessons      Lesson[]
+  reviews      Review[]
+
+  @@index([title])
+  @@index([categoryId])
+  @@index([instructorId])
+}
+
+model Lesson {
+  id           String         @id @default(uuid())
+  title        String
+  content      String?
+  videoUrl     String?
+  videoKey     String?
+  order        Int            @default(0)
+  courseId     String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  chatSessions ChatSession[]
+  course       Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  summary      LessonSummary?
+  quiz         Quiz?
+
+  @@unique([courseId, order])
+  @@index([courseId])
+}
+
+model Enrollment {
+  id               String   @id @default(uuid())
+  userId           String
+  courseId         String
+  progress         Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  completedLessons String[] @default([])
+  lastLessonId     String?
+  lastPosition     Int?
+  course           Course   @relation(fields: [courseId], references: [id],onDelete: Cascade)
+  user             User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int
+  comment   String?
+  userId    String
+  courseId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  course    Course   @relation(fields: [courseId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, courseId])
+  @@index([courseId])
+  @@index([userId])
+}
+
+model ChatSession {
+  id        String        @id @default(uuid())
+  userId    String
+  lessonId  String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+  lesson    Lesson?       @relation(fields: [lessonId], references: [id])
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([lessonId])
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  sessionId String
+  role      String
+  content   String
+  createdAt DateTime    @default(now())
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model LessonSummary {
+  id        String   @id @default(uuid())
+  lessonId  String   @unique
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+}
+
+model Quiz {
+  id        String         @id @default(uuid())
+  lessonId  String         @unique
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  lesson    Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  questions QuizQuestion[]
+}
+
+model QuizQuestion {
+  id            String   @id @default(uuid())
+  quizId        String
+  question      String
+  options       String[]
+  correctAnswer String
+  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([quizId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  fname     String
+  lname     String
+  email     String
+  phone     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+  INSTRUCTOR
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
