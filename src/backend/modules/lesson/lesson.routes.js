@@ -6,15 +6,29 @@ import { validate } from "../../middlewares/validate.middleware.js";
 import {
   createLessonSchema,
   updateLessonSchema,
+  completeLessonSchema,
 } from "../../schemas/lesson.schema.js";
 import { completeLessonController } from "./lesson.controller.js";
 
 const router = express.Router();
 
-router.get("/courses/:courseId", lessonController.getLessonsByCourse);
-// lesson.routes.js
-router.get("/", lessonController.getAllLessons);
-router.get("/:id", lessonController.getLessonById);
+// محتوى الدرس ورابط الفيديو الموقّع ليسا عامّين:
+// الطالب المسجّل في الكورس أو مدرّسه أو الأدمن فقط (الخدمة تتحقق من ذلك)
+router.get(
+  "/courses/:courseId",
+  authMiddleware,
+  lessonController.getLessonsByCourse,
+);
+
+// جدول لوحة التحكم: الأدمن يرى الكل، والمدرّس دروس كورساته فقط
+router.get(
+  "/",
+  authMiddleware,
+  allowRoles("INSTRUCTOR", "ADMIN"),
+  lessonController.getAllLessons,
+);
+
+router.get("/:id", authMiddleware, lessonController.getLessonById);
 
 
 router.post(
@@ -39,7 +53,12 @@ router.delete(
   lessonController.deleteLesson,
 );
 
-router.post("/complete-lesson", authMiddleware, completeLessonController);
+router.post(
+  "/complete-lesson",
+  authMiddleware,
+  validate(completeLessonSchema),
+  completeLessonController,
+);
 
 /**
  * @swagger

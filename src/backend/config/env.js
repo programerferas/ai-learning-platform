@@ -63,6 +63,14 @@ const envSchema = z.object({
   SUPABASE_S3_ACCESS_KEY_ID: optionalEnv("SUPABASE_S3_ACCESS_KEY_ID غير صالح"),
   SUPABASE_S3_SECRET_ACCESS_KEY: optionalEnv("SUPABASE_S3_SECRET_ACCESS_KEY غير صالح"),
   SUPABASE_STORAGE_BUCKET: optionalEnv("SUPABASE_STORAGE_BUCKET غير صالح"),
+
+  // الذكاء الاصطناعي (Gemini) — مطلوب لأن /api/ai جزء أساسي من المنصة
+  GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY مطلوب لمسارات الذكاء الاصطناعي"),
+  // القيمة الفارغة تعني "استخدم الافتراضي"، لا خطأ إعدادات
+  GEMINI_MODEL: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().default("gemini-3.6-flash"),
+  ),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -24,8 +24,8 @@ export const parseQuizResponse = (rawText) => {
     throw new Error("AI returned invalid JSON for quiz. Raw: " + rawText.slice(0, 200));
   }
 
-  if (!Array.isArray(parsed)) {
-    throw new Error("AI quiz response is not an array.");
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error("AI quiz response is not a non-empty array.");
   }
 
   const validated = parsed.map((item, index) => {

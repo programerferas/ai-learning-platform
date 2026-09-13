@@ -42,13 +42,10 @@ export default function ProgressCard() {
 
       <div className="progress-card__info">
         <span className="material-symbols-outlined">workspace_premium</span>
-        <span>{total - completed} دروس متبقية للحصول على الشهادة</span>
+        <span>{total - completed} دروس متبقية </span>
       </div>
 
-      <button className="progress-card__cert-btn">
-        <span className="material-symbols-outlined">workspace_premium</span>
-        الحصول على الشهادة
-      </button>
+      
     </section>
   );
 }

@@ -1,5 +1,8 @@
 import { z } from "zod";
 
-export const updateProgressSchema = z.object({
-  progress: z.number().min(0).max(100, "Progress must be between 0 and 100"),
+// موضع التوقف في الدرس (بالثواني) لاستئناف المشاهدة
+export const saveProgressSchema = z.object({
+  courseId: z.string().uuid("معرف الدورة غير صالح"),
+  lessonId: z.string().uuid("معرف الدرس غير صالح"),
+  position: z.number().int().min(0).optional(),
 });

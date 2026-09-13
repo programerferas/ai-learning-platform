@@ -42,7 +42,7 @@ const DashboardHome = () => {
       onClick: () => navigate("courses?action=create"),
     },
     {
-      label: "إضافة مستخدم",
+      label: "اعدادات المستخدم",
       icon: <FaUsers />,
       onClick: () => navigate("users?action=create"),
     },

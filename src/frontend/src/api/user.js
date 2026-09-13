@@ -18,11 +18,4 @@ export const updateUser = (id, userData) =>
 export const deleteUser = (id) =>
   api.delete(`/users/${id}`).then((r) => r.data);
 
-// Get current user profile (if you have this endpoint)
-export const getCurrentUser = () =>
-  api.get('/users/me').then((r) => r.data);
-
-// Update current user profile
-export const updateCurrentUser = (userData) =>
-  api.put('/users/me', userData).then((r) => r.data);
-
+// بيانات المستخدم الحالي: /auth/me و /auth/update-profile في api/auth.js

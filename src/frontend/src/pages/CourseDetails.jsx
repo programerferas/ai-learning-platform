@@ -79,7 +79,7 @@ export default function CourseDetails() {
 
   // ── التسجيل في الكورس ──
   const handleEnroll = async () => {
-    window.location.reload();
+    
     if (!user) {
       navigate("/login");
       return;
@@ -87,7 +87,9 @@ export default function CourseDetails() {
     setEnrolling(true);
     try {
       await enrollCourse(id);
-      setEnrolled(true);
+      // إعادة تحميل الصفحة بعد التسجيل لجلب البيانات المحدّثة (حالة التسجيل، الدروس، التقييمات)
+      window.location.reload();
+      return;
     } catch (err) {
       setError(err.response?.data?.message || "فشل التسجيل، حاول مجدداً.");
     } finally {
@@ -371,12 +373,23 @@ export default function CourseDetails() {
               <span className="cd-sidebar__title">محتوى الدورة</span>
             </div>
             <div className="cd-sidebar__lessons">
-              <Link
-                to={`/lessons/${course.lessons?.[0]?.id}?courseId=${course.id}`}
-                className="cd-sidebar__btn"
-              >
-                ابدأ الدورة
-              </Link>
+              {enrolled ? (
+                <Link
+                  to={`/lessons/${course.lessons?.[0]?.id}?courseId=${course.id}`}
+                  className="cd-sidebar__btn"
+                >
+                  ابدأ الدورة
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="cd-sidebar__btn cd-sidebar__btn--locked"
+                  disabled
+                  title="سجّل في الدورة أولاً لبدء الدروس"
+                >
+                سجّل الدخول اولا
+                </button>
+              )}
             </div>
           </div>
         </div>

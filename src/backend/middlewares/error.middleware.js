@@ -1,5 +1,6 @@
 import { ZodError } from "zod";
-import { Prisma } from "@prisma/client";   
+import { Prisma } from "@prisma/client";
+import { IS_PROD } from "../config/env.js";
 
 export const errorMiddleware = (err, req, res, next) => {
   if (err instanceof ZodError) {
@@ -37,7 +38,7 @@ export const errorMiddleware = (err, req, res, next) => {
   const statusCode = err.statusCode || err.status || 500;
 
   const message =
-    process.env.NODE_ENV === "production"
+    IS_PROD
       ? err.isOperational
         ? err.message
         : "Internal Server Error"

@@ -64,6 +64,11 @@ const NotificationsPage = () => {
     }
   };
 
+  const changeFilter = (value) => {
+    setFilter(value);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const filteredNotifications = notifications.filter((n) => {
     if (filter === "all") return true;
     if (filter === "unread") return !n.isRead;
@@ -96,19 +101,19 @@ const NotificationsPage = () => {
             <div className="review-filters">
               <button
                 className={`filter-btn ${filter === "all" ? "active" : ""}`}
-                onClick={() => setFilter("all")}
+                onClick={() => changeFilter("all")}
               >
                 الكل
               </button>
               <button
                 className={`filter-btn ${filter === "unread" ? "active" : ""}`}
-                onClick={() => setFilter("unread")}
+                onClick={() => changeFilter("unread")}
               >
                 غير مقروءة
               </button>
               <button
                 className={`filter-btn ${filter === "read" ? "active" : ""}`}
-                onClick={() => setFilter("read")}
+                onClick={() => changeFilter("read")}
               >
                 مقروءة
               </button>

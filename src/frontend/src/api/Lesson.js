@@ -2,6 +2,7 @@
 // Connects the frontend to the Luxora Learn backend
 // Usage: import { getLessonById, ... } from "@/services/lessonService"
 
+import axios from "axios";
 import api from "./axios";
 
 
@@ -62,6 +63,34 @@ export const updateLesson = (id, lessonData) =>
 // Delete a lesson
 export const deleteLesson = (id) =>
   api.delete(`/lessons/${id}`).then((r) => r.data);
+
+/**
+ * Upload a lesson video directly to storage (bytes never pass through the API).
+ * 1. POST /uploads/presign { filename, contentType, size } -> { uploadUrl, key }
+ * 2. PUT the file to uploadUrl
+ * Returns the storage key to send as `videoKey` when creating/updating a lesson.
+ * onProgress(percent) is optional.
+ */
+export const uploadLessonVideo = async (file, onProgress) => {
+  const { uploadUrl, key } = await api
+    .post("/uploads/presign", {
+      filename: file.name,
+      contentType: file.type,
+      size: file.size,
+    })
+    .then((r) => r.data);
+
+  // Plain axios: the presigned URL is on the storage host, not our API,
+  // so no baseURL / cookies must be attached.
+  await axios.put(uploadUrl, file, {
+    headers: { "Content-Type": file.type },
+    onUploadProgress: (e) => {
+      if (onProgress && e.total) onProgress(Math.round((e.loaded * 100) / e.total));
+    },
+  });
+
+  return key;
+};
 
 /**
  * Get AI-generated quiz for a lesson

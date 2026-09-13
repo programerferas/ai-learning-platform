@@ -20,6 +20,7 @@ import CategoriesPage from "./pages/AdminDashboard/CategoriesPage";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import NotificationsPage from "./pages/AdminDashboard/NotificationsPage";
+import ScrollToTop from "./components/ScrollToTop";
 
 // in your routes:
 
@@ -190,6 +191,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>

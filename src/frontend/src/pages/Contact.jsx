@@ -1,20 +1,53 @@
 import { useState, useEffect, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import "../css/contact.css";
+import { useAuth } from "../hooks/useAuth";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { sendContactForm } from "../api/notifications";
 
+// بعد إرسال ناجح يُقفل الزر لهذه المدة — يُحفظ في localStorage حتى لا يفيد تحديث الصفحة
+const COOLDOWN_MS = 60 * 1000;
+const COOLDOWN_KEY = "contact:lastSentAt";
+
+const EMPTY_FORM = {
+  fname: "",
+  lname: "",
+  email: "",
+  phone: "",
+  message: "",
+  website: "", // honeypot — مخفي عن البشر، البوتات تملؤه
+};
+
+const readLastSentAt = () => {
+  try {
+    return Number(localStorage.getItem(COOLDOWN_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+};
+
 export default function Contact() {
-  const [form, setForm] = useState({
-    fname: "",
-    lname: "",
-    email: "",
-    phone: "",
-    message: "",
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [feedback, setFeedback] = useState({ type: "", text: "" });
   const [loading, setLoading] = useState(false);
+  const [cooldownLeft, setCooldownLeft] = useState(() =>
+    Math.max(0, readLastSentAt() + COOLDOWN_MS - Date.now()),
+  );
   const socialRef = useRef(null);
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  // لا يُسمح بإرسال الرسائل إلا للمستخدمين المسجّلين دخولهم
+  const isGuest = !authLoading && !user;
+
+  /* ── Cooldown countdown ── */
+  useEffect(() => {
+    if (cooldownLeft <= 0) return;
+    const id = setInterval(() => {
+      setCooldownLeft(Math.max(0, readLastSentAt() + COOLDOWN_MS - Date.now()));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [cooldownLeft]);
 
   /* ── Scroll reveal ── */
   useEffect(() => {
@@ -31,10 +64,24 @@ export default function Contact() {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
   const handleSubmit = async () => {
+    if (loading || cooldownLeft > 0) return;
+
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
     if (!form.fname || !form.email || !form.message) {
       setFeedback({
         type: "error",
         text: "⚠️ يرجى تعبئة الحقول المطلوبة: الاسم، البريد الإلكتروني، والرسالة.",
+      });
+      return;
+    }
+    if (form.message.trim().length < 10) {
+      setFeedback({
+        type: "error",
+        text: "⚠️ الرسالة قصيرة جداً — اكتب 10 أحرف على الأقل.",
       });
       return;
     }
@@ -48,16 +95,31 @@ export default function Contact() {
         type: "success",
         text: "✅ شكراً لتواصلكم! سنرد عليكم في أقرب وقت ممكن.",
       });
-      setForm({ fname: "", lname: "", email: "", phone: "", message: "" });
+      setForm(EMPTY_FORM);
+      try {
+        localStorage.setItem(COOLDOWN_KEY, String(Date.now()));
+      } catch {
+        /* التخزين المحلي غير متاح — نكتفي بالحد في الباكند */
+      }
+      setCooldownLeft(COOLDOWN_MS);
     } catch (err) {
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message;
       setFeedback({
         type: "error",
-        text: "❌ حدث خطأ أثناء إرسال الرسالة. حاول مرة أخرى.",
+        text:
+          status === 429
+            ? `⏳ ${serverMsg || "لقد أرسلت رسائل كثيرة. يرجى المحاولة لاحقاً."}`
+            : status === 400 && serverMsg
+              ? `⚠️ ${serverMsg}`
+              : "❌ حدث خطأ أثناء إرسال الرسالة. حاول مرة أخرى.",
       });
     } finally {
       setLoading(false);
     }
   };
+
+  const cooldownSeconds = Math.ceil(cooldownLeft / 1000);
 
   /* ── Info items data ── */
   const infoItems = [
@@ -162,6 +224,7 @@ export default function Contact() {
                   value={form.fname}
                   onChange={handleChange}
                   placeholder="محمد"
+                  disabled={isGuest}
                 />
               </div>
               <div className="field">
@@ -172,6 +235,7 @@ export default function Contact() {
                   value={form.lname}
                   onChange={handleChange}
                   placeholder="أحمد"
+                  disabled={isGuest}
                 />
               </div>
             </div>
@@ -185,6 +249,7 @@ export default function Contact() {
                 value={form.email}
                 onChange={handleChange}
                 placeholder="example@domain.com"
+                disabled={isGuest}
               />
             </div>
 
@@ -197,6 +262,7 @@ export default function Contact() {
                 value={form.phone}
                 onChange={handleChange}
                 placeholder="05X XXX XXXX"
+                disabled={isGuest}
               />
             </div>
 
@@ -208,14 +274,53 @@ export default function Contact() {
                 value={form.message}
                 onChange={handleChange}
                 placeholder="اكتب تفاصيل احتياجاتكم هنا..."
+                maxLength={2000}
+                disabled={isGuest}
               />
             </div>
 
-            {/* submit */}
-            <button className="submit-btn" onClick={handleSubmit} disabled={loading}>
-              <span>{loading ? "جاري الإرسال..." : "إرسال الرسالة"}</span>
+            {/* honeypot — لا يُعرض للبشر ولا يصل إليه Tab؛ البوتات تملؤه فيرفضه الباكند بصمت */}
+            <div className="hp-field" aria-hidden="true">
+              <label htmlFor="contact-website">Website</label>
+              <input
+                id="contact-website"
+                type="text"
+                name="website"
+                value={form.website}
+                onChange={handleChange}
+                tabIndex={-1}
+                autoComplete="off"
+              />
+            </div>
+
+            {/* submit — للزوار نعرض دعوة لتسجيل الدخول بدلاً من زر الإرسال */}
+            {isGuest ? (
+              <div className="login-required">
+                <span className="login-required-ico">🔒</span>
+                <div>
+                  <div className="login-required-title">يجب تسجيل الدخول لإرسال رسالة</div>
+                  <div className="login-required-sub">
+                    <Link to="/login">سجّل الدخول</Link> أو{" "}
+                    <Link to="/register">أنشئ حساباً جديداً</Link> للتواصل معنا.
+                  </div>
+                </div>
+              </div>
+            ) : (
+            <button
+              className="submit-btn"
+              onClick={handleSubmit}
+              disabled={loading || authLoading || cooldownLeft > 0}
+            >
+              <span>
+                {loading
+                  ? "جاري الإرسال..."
+                  : cooldownLeft > 0
+                    ? `يمكنك الإرسال مجدداً بعد ${cooldownSeconds} ث`
+                    : "إرسال الرسالة"}
+              </span>
               <span className="submit-icon">✦</span>
             </button>
+            )}
 
             {/* feedback */}
             {feedback.text && (

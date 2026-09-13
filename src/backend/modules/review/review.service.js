@@ -1,4 +1,5 @@
 import prisma from "../../lib/prisma.js";
+import { AppError } from "../../utils/appError.js";
 
 export const createReview = async (userId, courseId, data) => {
   // check if user is enrolled
@@ -7,18 +8,18 @@ export const createReview = async (userId, courseId, data) => {
   });
 
   if (!enrollment)
-    throw new Error("You must be enrolled to review this course");
+    throw new AppError("You must be enrolled to review this course", 403);
 
   // check if user already reviewed
   const existing = await prisma.review.findFirst({
     where: { userId, courseId },
   });
 
-  if (existing) throw new Error("You already reviewed this course");
+  if (existing) throw new AppError("You already reviewed this course", 409);
 
   // validate rating
   if (data.rating < 1 || data.rating > 5)
-    throw new Error("Rating must be between 1 and 5");
+    throw new AppError("Rating must be between 1 and 5", 400);
 
   return await prisma.review.create({
     data: {
@@ -61,11 +62,11 @@ export const updateReview = async (userId, reviewId, data) => {
     where: { id: reviewId },
   });
 
-  if (!review) throw new Error("Review not found");
-  if (review.userId !== userId) throw new Error("Not authorized");
+  if (!review) throw new AppError("Review not found", 404);
+  if (review.userId !== userId) throw new AppError("Not authorized", 403);
 
   if (data.rating && (data.rating < 1 || data.rating > 5)) {
-    throw new Error("Rating must be between 1 and 5");
+    throw new AppError("Rating must be between 1 and 5", 400);
   }
 
   return await prisma.review.update({
@@ -82,11 +83,11 @@ export const deleteReview = async (userId, reviewId, userRole) => {
     where: { id: reviewId },
   });
 
-  if (!review) throw new Error("Review not found");
+  if (!review) throw new AppError("Review not found", 404);
 
   // user can delete their own, admin can delete any
   if (review.userId !== userId && userRole !== "ADMIN") {
-    throw new Error("Not authorized");
+    throw new AppError("Not authorized", 403);
   }
 
   return await prisma.review.delete({

@@ -26,6 +26,11 @@ const ReviewsPage = () => {
     }
   };
 
+  const changeFilter = (value) => {
+    setFilter(value);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const filteredReviews = reviews.filter((review) => {
     if (filter === "all") return true;
     if (filter === "top") return review.rating >= 4;
@@ -39,7 +44,12 @@ const ReviewsPage = () => {
         <h1><FaStar /> تقيمات الطلاب</h1>
         <div className="header-actions">
           <span className="pending-badge">{reviews.length} التقيمات</span>
-          <button className="btn btn-outline"><FaSearch /> تحديث</button>
+          <button
+            className="btn btn-outline"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          >
+            <FaSearch /> تحديث
+          </button>
         </div>
       </div>
 
@@ -53,19 +63,19 @@ const ReviewsPage = () => {
             <div className="review-filters">
               <button
                 className={`filter-btn ${filter === "all" ? "active" : ""}`}
-                onClick={() => setFilter("all")}
+                onClick={() => changeFilter("all")}
               >
                 الكل
               </button>
               <button
                 className={`filter-btn ${filter === "top" ? "active" : ""}`}
-                onClick={() => setFilter("top")}
+                onClick={() => changeFilter("top")}
               >
                 الأعلى
               </button>
               <button
                 className={`filter-btn ${filter === "low" ? "active" : ""}`}
-                onClick={() => setFilter("low")}
+                onClick={() => changeFilter("low")}
               >
                 الأدنى
               </button>

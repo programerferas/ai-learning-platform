@@ -195,7 +195,7 @@ html { direction: rtl; }
 
 
 /* ── Left column (video + chat) ── */
-.col-main { display: flex; flex-direction: column; gap: 2rem;
+.col-main { display: flex; flex-direction: column; gap: 5px;
 }
 
 /* ── Right column (progress, curriculum…) ── */
@@ -209,12 +209,23 @@ html { direction: rtl; }
 .video-player {
   position: relative;
   aspect-ratio: 16/9;
-  width: 93%;
+  width: 97%;
   border-radius: var(--radius-2xl);
   overflow: hidden;
   box-shadow: 0 25px 50px rgba(0,0,0,0.5);
   border: 1px solid rgba(233, 195, 73, 0.2);
+  background: #000;
   height: 600px;
+}
+
+/* الفيديو يملأ الحاوية بالكامل */
+.video-player__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .video-player__bg {
@@ -563,7 +574,7 @@ html { direction: rtl; }
   box-shadow: 0 20px 40px rgba(0,0,0,0.3);
   background: var(--color-surface);
   width: 100%;
-  height: 250px;
+  height: 200px;
 }
 
 .progress-card__top {

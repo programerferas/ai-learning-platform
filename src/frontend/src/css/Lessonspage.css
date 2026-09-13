@@ -54,6 +54,7 @@ label {
 textarea,
 input[type="text"],
 input[type="number"],
+input[type="file"],
 select {
   width: 100%;
   border: 1px solid #e2e2cf;
@@ -229,6 +230,35 @@ tbody tr:last-child td {
 
 .modal-body label:first-child {
   margin-top: 0;
+}
+
+.modal-error {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 14px;
+}
+
+/* field with a validation error + its message underneath */
+.modal-body .input-error,
+.modal-body .input-error:focus {
+  border-color: #dc2626;
+  background: #fff7f7;
+}
+
+.modal-body .field-error {
+  display: block;
+  color: #b91c1c;
+  font-size: 12.5px;
+  margin-top: -2px;
+  margin-bottom: 6px;
 }
 
 .modal-body p {

@@ -18,6 +18,7 @@ import {
   createCourse,
   deleteCourse,
   updateCourse,
+  uploadCourseImage,
 } from "../../api/courses";
 import "../../css/CoursesPage.css";
 import { getCategories } from "../../api/courses";
@@ -29,8 +30,10 @@ const EMPTY_FORM = {
   categoryId: "",
   price: "",
   level: "",
-  thumbnail: "",
 };
+
+// الحد الأقصى لحجم الصورة — يطابق MAX_IMAGE_SIZE_BYTES في الباكند
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const CoursesPage = () => {
   const [courses, setCourses] = useState([]);
@@ -41,9 +44,16 @@ const CoursesPage = () => {
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
+  const [formError, setFormError] = useState("");
+  // أخطاء كل حقل على حدة — تُعرض تحت الحقل نفسه
+  const [fieldErrors, setFieldErrors] = useState({});
   const [editCourse, setEditCourse] = useState(null); // null = create, obj = edit
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+
+  // Image file (uploaded straight to storage on save)
+  const [imageFile, setImageFile] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(null);
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -78,6 +88,10 @@ const CoursesPage = () => {
   const openCreate = () => {
     setEditCourse(null);
     setForm(EMPTY_FORM);
+    setImageFile(null);
+    setUploadProgress(null);
+    setFormError("");
+    setFieldErrors({});
     setShowModal(true);
   };
 
@@ -90,22 +104,94 @@ const CoursesPage = () => {
       categoryId: course.category?.id?.toString() || "",
       price: course.price?.toString(),
       level: course.level,
-      thumbnail: course.thumbnail || "",
     });
+    setImageFile(null);
+    setUploadProgress(null);
+    setFormError("");
+    setFieldErrors({});
     setShowModal(true);
+  };
+
+  const clearFieldError = (name) =>
+    setFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+
+  const setFieldError = (name, message) =>
+    setFieldErrors((prev) => ({ ...prev, [name]: message }));
+
+  // تحديث حقل مع مسح خطئه فور أن يبدأ المستخدم بالتصحيح
+  const setField = (name, value) => {
+    setForm((prev) => ({ ...prev, [name]: value }));
+    clearFieldError(name);
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) return setImageFile(null);
+    if (!file.type.startsWith("image/")) {
+      e.target.value = "";
+      return setFieldError("thumbnail", "الملف يجب أن يكون صورة.");
+    }
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      e.target.value = "";
+      return setFieldError("thumbnail", "حجم الصورة يتجاوز الحد المسموح (5 ميجابايت).");
+    }
+    clearFieldError("thumbnail");
+    setImageFile(file);
+  };
+
+  // نفس قواعد التحقق الموجودة في الـ backend (createCourseSchema)
+  const validateForm = () => {
+    const errors = {};
+    const title = form.title.trim();
+    const description = (form.description || "").trim();
+
+    if (!title) errors.title = "عنوان الكورس مطلوب.";
+    else if (title.length < 3)
+      errors.title = "عنوان الكورس يجب أن يكون 3 أحرف على الأقل.";
+    else if (title.length > 100)
+      errors.title = "عنوان الكورس يجب ألا يتجاوز 100 حرف.";
+
+    if (!description) errors.description = "وصف الكورس مطلوب.";
+    else if (description.length < 10)
+      errors.description = "وصف الكورس يجب أن يكون 10 أحرف على الأقل.";
+
+    if (!form.categoryId) errors.categoryId = "يرجى اختيار تصنيف الكورس.";
+    if (!form.level) errors.level = "يرجى اختيار مستوى الكورس.";
+
+    if (form.price !== "" && form.price !== undefined && Number(form.price) < 0)
+      errors.price = "السعر لا يمكن أن يكون سالباً.";
+
+    if (!editCourse && !imageFile) errors.thumbnail = "صورة الكورس مطلوبة.";
+
+    return errors;
   };
 
   // ── Save (create or update) ─────────────────────────────
   const handleSave = async () => {
-    if (!form.title.trim()) return setError("عنوان الكورس مطلوب.");
+    const errors = validateForm();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) {
+      return setFormError("يرجى تصحيح الحقول المحددة بالأحمر.");
+    }
+    setFormError("");
     setSaving(true);
     try {
       const payload = {
         ...form,
         categoryId: form.categoryId ? form.categoryId.toString() : undefined,
         price: form.price ? Number(form.price) : undefined,
-        thumbnail: form.thumbnail ? form.thumbnail.trim() : undefined,
       };
+
+      // الصورة تُرفع مباشرة إلى التخزين ثم يُرسل مفتاحها فقط — كما في فيديو الدرس
+      if (imageFile) {
+        setUploadProgress(0);
+        payload.thumbnailKey = await uploadCourseImage(imageFile, setUploadProgress);
+      }
 
       if (editCourse) {
         const res = await updateCourse(editCourse.id, payload);
@@ -119,10 +205,22 @@ const CoursesPage = () => {
         setCourses((prev) => [res.data.course ?? res.data, ...prev]);
       }
       setShowModal(false);
-    } catch {
-      setError("فشل حفظ الكورس.");
+    } catch (err) {
+      // الـ backend يعيد errors: [{ field, message }] من zod — نوزّعها على الحقول
+      const data = err.response?.data;
+      const backendErrors = {};
+      for (const e of data?.errors ?? []) {
+        if (e.field && !backendErrors[e.field]) backendErrors[e.field] = e.message;
+      }
+      setFieldErrors(backendErrors);
+      setFormError(
+        Object.keys(backendErrors).length
+          ? "يرجى تصحيح الحقول المحددة بالأحمر."
+          : data?.message || "فشل حفظ الكورس.",
+      );
     } finally {
       setSaving(false);
+      setUploadProgress(null);
     }
   };
 
@@ -441,8 +539,18 @@ const CoursesPage = () => {
               />
             </div>
             <div className="modal-body">
+              {formError && (
+                <div className="modal-error">
+                  {formError}
+                  <FaTimes
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setFormError("")}
+                  />
+                </div>
+              )}
+
               {/* ── Thumbnail ── */}
-              <label>صورة الكورس</label>
+              <label>صورة الكورس {editCourse ? "" : "*"}</label>
               <div
                 style={{
                   display: "flex",
@@ -451,9 +559,9 @@ const CoursesPage = () => {
                   marginBottom: 12,
                 }}
               >
-                {form.thumbnail ? (
+                {imageFile || editCourse?.thumbnail ? (
                   <img
-                    src={form.thumbnail}
+                    src={imageFile ? URL.createObjectURL(imageFile) : editCourse.thumbnail}
                     alt="thumbnail preview"
                     style={{
                       width: 80,
@@ -483,66 +591,123 @@ const CoursesPage = () => {
                     <FaImage />
                   </div>
                 )}
-                <input
-                  type="text"
-                  value={form.thumbnail}
-                  placeholder="أدخل رابط الصورة"
-                  onChange={(e) => setForm({ ...form, thumbnail: e.target.value })}
-                  style={{ flex: 1 }}
-                />
+                <div style={{ flex: 1 }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    disabled={saving}
+                    className={fieldErrors.thumbnail ? "input-error" : ""}
+                  />
+                  {fieldErrors.thumbnail && (
+                    <small className="field-error">{fieldErrors.thumbnail}</small>
+                  )}
+                  {imageFile ? (
+                    <small style={{ color: "#555", display: "block", marginTop: 4 }}>
+                      {imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)
+                    </small>
+                  ) : (
+                    editCourse?.thumbnail && (
+                      <small style={{ color: "#888", display: "block", marginTop: 4 }}>
+                        توجد صورة محفوظة — اختر ملفاً جديداً لاستبدالها
+                      </small>
+                    )
+                  )}
+                  {uploadProgress !== null && (
+                    <div style={{ marginTop: 6 }}>
+                      <div
+                        style={{
+                          height: 6,
+                          background: "#e5e7eb",
+                          borderRadius: 3,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${uploadProgress}%`,
+                            height: "100%",
+                            background: "#2563eb",
+                            transition: "width .2s",
+                          }}
+                        />
+                      </div>
+                      <small style={{ color: "#555" }}>
+                        جاري رفع الصورة... {uploadProgress}%
+                      </small>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <label>عنوان الكورس *</label>
               <input
                 type="text"
                 value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                onChange={(e) => setField("title", e.target.value)}
                 placeholder="أدخل عنوان الكورس"
+                className={fieldErrors.title ? "input-error" : ""}
               />
+              {fieldErrors.title && (
+                <small className="field-error">{fieldErrors.title}</small>
+              )}
 
-              <label>الوصف</label>
+              <label>الوصف *</label>
               <textarea
                 rows={3}
                 value={form.description}
-                onChange={(e) =>
-                  setForm({ ...form, description: e.target.value })
-                }
+                onChange={(e) => setField("description", e.target.value)}
                 placeholder="وصف مختصر للكورس"
+                className={fieldErrors.description ? "input-error" : ""}
               />
+              {fieldErrors.description && (
+                <small className="field-error">{fieldErrors.description}</small>
+              )}
 
-              <label>التصنيف</label>
+              <label>التصنيف *</label>
               <select
                 value={form.categoryId}
-                onChange={(e) =>
-                  setForm({ ...form, categoryId: e.target.value })
-                }
+                onChange={(e) => setField("categoryId", e.target.value)}
+                className={fieldErrors.categoryId ? "input-error" : ""}
               >
-                <option value="">-- بدون تصنيف --</option>
+                <option value="">-- اختر التصنيف --</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.name}
                   </option>
                 ))}
               </select>
+              {fieldErrors.categoryId && (
+                <small className="field-error">{fieldErrors.categoryId}</small>
+              )}
 
               <label>السعر (اختياري)</label>
               <input
                 type="number"
                 min="0"
                 value={form.price}
-                onChange={(e) => setForm({ ...form, price: e.target.value })}
+                onChange={(e) => setField("price", e.target.value)}
                 placeholder="0"
+                className={fieldErrors.price ? "input-error" : ""}
               />
+              {fieldErrors.price && (
+                <small className="field-error">{fieldErrors.price}</small>
+              )}
 
+              <label>المستوى *</label>
               <select
                 value={form.level}
-                onChange={(e) => setForm({ ...form, level: e.target.value })}
+                onChange={(e) => setField("level", e.target.value)}
+                className={fieldErrors.level ? "input-error" : ""}
               >
                 <option value="">-- اختر المستوى --</option>
                 <option value="BEGINNER">مبتدئ</option>
                 <option value="INTERMEDIATE">متوسط</option>
                 <option value="ADVANCED">خبير</option>
               </select>
+              {fieldErrors.level && (
+                <small className="field-error">{fieldErrors.level}</small>
+              )}
             </div>
             <div className="modal-footer">
               <button

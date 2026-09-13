@@ -1,14 +1,17 @@
 // pages/CategoriesPage.js
 import { useEffect, useState } from 'react';
-import { FaPlus, FaEdit, FaTrashAlt, FaSearch, FaTags, FaTimes } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrashAlt, FaSearch, FaTags, FaTimes, FaImage } from 'react-icons/fa';
 import {
   getAllCategories, createCategory,
-  updateCategory, deleteCategory
+  updateCategory, deleteCategory, uploadCategoryImage
 } from '../../api/category';
 import '../../css/CategoriesPage.css';
 
 
-const EMPTY_FORM = { name: "", description: "", thumbnail: "" };
+const EMPTY_FORM = { name: "", description: "" };
+
+// الحد الأقصى لحجم الصورة — يطابق MAX_IMAGE_SIZE_BYTES في الباكند
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const CategoriesPage = () => {
   const [categories, setCategories] = useState([]);
@@ -20,6 +23,12 @@ const CategoriesPage = () => {
   const [editCat, setEditCat]       = useState(null);
   const [form, setForm]             = useState(EMPTY_FORM);
   const [saving, setSaving]         = useState(false);
+  const [formError, setFormError]   = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  // صورة التصنيف — تُرفع مباشرة إلى التخزين كما في صورة الكورس
+  const [imageFile, setImageFile] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(null);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -33,6 +42,10 @@ const CategoriesPage = () => {
   const openCreate = () => {
     setEditCat(null);
     setForm(EMPTY_FORM);
+    setImageFile(null);
+    setUploadProgress(null);
+    setFormError('');
+    setFieldErrors({});
     setShowModal(true);
   };
 
@@ -41,28 +54,104 @@ const CategoriesPage = () => {
     setForm({
       name: cat.name || "",
       description: cat.description || "",
-      thumbnail: cat.thumbnail || "",
     });
+    setImageFile(null);
+    setUploadProgress(null);
+    setFormError('');
+    setFieldErrors({});
     setShowModal(true);
   };
 
+  const clearFieldError = (name) =>
+    setFieldErrors(prev => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+
+  const setFieldError = (name, message) =>
+    setFieldErrors(prev => ({ ...prev, [name]: message }));
+
+  // تحديث حقل مع مسح خطئه فور أن يبدأ المستخدم بالتصحيح
+  const setField = (name, value) => {
+    setForm(prev => ({ ...prev, [name]: value }));
+    clearFieldError(name);
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) return setImageFile(null);
+    if (!file.type.startsWith("image/")) {
+      e.target.value = "";
+      return setFieldError("thumbnail", "الملف يجب أن يكون صورة.");
+    }
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      e.target.value = "";
+      return setFieldError("thumbnail", "حجم الصورة يتجاوز الحد المسموح (5 ميجابايت).");
+    }
+    clearFieldError("thumbnail");
+    setImageFile(file);
+  };
+
+  // نفس قواعد createCategorySchema في الـ backend
+  const validateForm = () => {
+    const errors = {};
+    const name = form.name.trim();
+    if (!name) errors.name = "اسم التصنيف مطلوب.";
+    else if (name.length < 3) errors.name = "يجب أن يتكون الاسم من 3 حروف على الأقل.";
+    else if (name.length > 10) errors.name = "يجب ألا يتجاوز الاسم 10 أحرف.";
+
+    // الصورة مطلوبة عند الإنشاء؛ عند التعديل تبقى الصورة القديمة إن لم يُختر ملف
+    if (!editCat && !imageFile) errors.thumbnail = "صورة التصنيف مطلوبة.";
+    return errors;
+  };
+
   const handleSave = async () => {
-    if (!form.name.trim()) return setError("اسم التصنيف مطلوب.");
+    const errors = validateForm();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) {
+      return setFormError("يرجى تصحيح الحقول المحددة بالأحمر.");
+    }
+    setFormError('');
     setSaving(true);
     try {
+      const payload = {
+        ...form,
+        name: form.name.trim(),
+      };
+
+      // الصورة تُرفع مباشرة إلى التخزين ثم يُرسل مفتاحها فقط — كما في صورة الكورس
+      if (imageFile) {
+        setUploadProgress(0);
+        payload.thumbnailKey = await uploadCategoryImage(imageFile, setUploadProgress);
+      }
+
       if (editCat) {
-        const res = await updateCategory(editCat.id, form);
+        const res = await updateCategory(editCat.id, payload);
         setCategories(prev => prev.map(c => c.id === editCat.id ? (res.data.category ?? res.data) : c));
       } else {
-        const res = await createCategory(form);
+        const res = await createCategory(payload);
         setCategories(prev => [res.data.category ?? res.data, ...prev]);
       }
       setShowModal(false);
       setForm(EMPTY_FORM);
-    } catch {
-      setError("فشل حفظ التصنيف.");
+    } catch (err) {
+      // الـ backend يعيد errors: [{ field, message }] من zod — نوزّعها على الحقول
+      const data = err.response?.data;
+      const backendErrors = {};
+      for (const e of data?.errors ?? []) {
+        if (e.field && !backendErrors[e.field]) backendErrors[e.field] = e.message;
+      }
+      setFieldErrors(backendErrors);
+      setFormError(
+        Object.keys(backendErrors).length
+          ? "يرجى تصحيح الحقول المحددة بالأحمر."
+          : data?.message || "فشل حفظ التصنيف.",
+      );
     } finally {
       setSaving(false);
+      setUploadProgress(null);
     }
   };
 
@@ -179,45 +268,73 @@ const CategoriesPage = () => {
               <FaTimes className="icon-btn" onClick={() => setShowModal(false)} />
             </div>
             <div className="modal-body">
+              {formError && (
+                <div className="modal-error">
+                  {formError}
+                  <FaTimes className="icon-btn" onClick={() => setFormError('')} />
+                </div>
+              )}
+
               <label>اسم التصنيف *</label>
               <input
                 type="text"
                 value={form.name}
-                onChange={e => setForm({ ...form, name: e.target.value })}
+                onChange={e => setField('name', e.target.value)}
                 placeholder="مثال: برمجة، تصميم، تسويق..."
+                className={fieldErrors.name ? 'input-error' : ''}
               />
+              {fieldErrors.name && <small className="field-error">{fieldErrors.name}</small>}
 
               <label>الوصف</label>
               <textarea
                 rows={3}
                 value={form.description}
-                onChange={e => setForm({ ...form, description: e.target.value })}
+                onChange={e => setField('description', e.target.value)}
                 placeholder="وصف مختصر للتصنيف (اختياري)"
               />
 
-              <label>رابط الصورة (thumbnail)</label>
-              <input
-                type="url"
-                value={form.thumbnail}
-                onChange={e => setForm({ ...form, thumbnail: e.target.value })}
-                placeholder="https://example.com/image.jpg"
-              />
-
-              {form.thumbnail && (
-                <div className="thumb-preview-wrap">
-                  <label>معاينة الصورة:</label>
-                  <div className="thumb-preview">
-                    <img
-                      src={form.thumbnail}
-                      alt="معاينة"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.parentElement.innerHTML = '⚠️ رابط غير صحيح';
-                      }}
-                    />
-                  </div>
+              <label>صورة التصنيف {editCat ? "" : "*"}</label>
+              <div className="thumb-picker">
+                {imageFile || editCat?.thumbnail ? (
+                  <img
+                    className="thumb-picker__preview"
+                    src={imageFile ? URL.createObjectURL(imageFile) : editCat.thumbnail}
+                    alt="thumbnail preview"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="thumb-picker__placeholder"><FaImage /></div>
+                )}
+                <div style={{ flex: 1 }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    disabled={saving}
+                    className={fieldErrors.thumbnail ? 'input-error' : ''}
+                  />
+                  {fieldErrors.thumbnail && <small className="field-error">{fieldErrors.thumbnail}</small>}
+                  {imageFile ? (
+                    <small className="thumb-picker__hint">
+                      {imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)
+                    </small>
+                  ) : (
+                    editCat?.thumbnail && (
+                      <small className="thumb-picker__hint thumb-picker__hint--muted">
+                        توجد صورة محفوظة — اختر ملفاً جديداً لاستبدالها
+                      </small>
+                    )
+                  )}
+                  {uploadProgress !== null && (
+                    <div className="upload-progress">
+                      <div className="upload-progress__bar">
+                        <div className="upload-progress__fill" style={{ width: `${uploadProgress}%` }} />
+                      </div>
+                      <small className="thumb-picker__hint">جاري رفع الصورة... {uploadProgress}%</small>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowModal(false)}>إلغاء</button>

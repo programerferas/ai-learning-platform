@@ -1,6 +1,7 @@
 // modules/ai/ai.service.js
 import prisma from "../../lib/prisma.js";
-import { callGroq as callGroq } from "../../lib/groq.js";
+import { callGemini } from "../../lib/gemini.js";
+import { AppError } from "../../utils/appError.js";
 import {
   chatPrompt,
   summaryPrompt,
@@ -13,22 +14,12 @@ import {
 } from "../../utils/aiParser.js";
 
 // ─────────────────────────────────────────────
-// HELPER — replaces extractTextContent
-// ─────────────────────────────────────────────
-
-export const callcallGroq = async (prompt) => {
-  const result = await geminiModel.generateContent(prompt);
-  const text = result.response.text();
-  if (!text) throw new Error("Gemini returned an empty response.");
-  return text.trim();
-};
-
-// ─────────────────────────────────────────────
 // CHAT ASSISTANT
 // ─────────────────────────────────────────────
 
 export const chatWithAssistant = async ({
   userId,
+  userRole,
   message,
   sessionId,
   lessonId,
@@ -37,8 +28,26 @@ export const chatWithAssistant = async ({
   if (lessonId) {
     lesson = await prisma.lesson.findUnique({
       where: { id: lessonId },
-      select: { id: true, title: true, content: true },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        course: {
+          select: {
+            instructorId: true,
+            enrollments: { where: { userId }, select: { id: true }, take: 1 },
+          },
+        },
+      },
     });
+    if (!lesson) throw new AppError("الدرس غير موجود.", 404);
+
+    // محتوى الدرس يدخل في الـ prompt، فنطبّق نفس قاعدة الوصول لمسارات الدروس
+    const isEnrolled = lesson.course.enrollments.length > 0;
+    const isInstructor = lesson.course.instructorId === userId;
+    if (!isEnrolled && !isInstructor && userRole !== "ADMIN") {
+      throw new AppError("يجب أن تكون مسجّلاً في هذا الكورس لاستخدام المساعد.", 403);
+    }
   }
 
   let session;
@@ -46,16 +55,15 @@ export const chatWithAssistant = async ({
     session = await prisma.chatSession.findFirst({
       where: { id: sessionId, userId },
       include: {
+        // آخر 20 رسالة (لا أول 20) ثم نعيد ترتيبها تصاعدياً للسياق
         messages: {
-          orderBy: { createdAt: "asc" },
+          orderBy: { createdAt: "desc" },
           take: 20,
         },
       },
     });
     if (!session)
-      throw new Error(
-        "Chat session not found or does not belong to this user.",
-      );
+      throw new AppError("جلسة المحادثة غير موجودة أو لا تخصّ هذا المستخدم.", 404);
   } else {
     session = await prisma.chatSession.create({
       data: {
@@ -66,7 +74,7 @@ export const chatWithAssistant = async ({
     });
   }
 
-  const history = session.messages.map((msg) => ({
+  const history = [...session.messages].reverse().map((msg) => ({
     role: msg.role,
     content: msg.content,
   }));
@@ -78,7 +86,7 @@ export const chatWithAssistant = async ({
     history,
   });
 
-  const aiReply = await callGroq(prompt);
+  const aiReply = await callGemini(prompt);
 
   await prisma.$transaction([
     prisma.chatMessage.create({
@@ -99,7 +107,7 @@ export const chatWithAssistant = async ({
 // COURSE SUMMARY GENERATOR
 // ─────────────────────────────────────────────
 
-export const generateLessonSummary = async ({ lessonId, userId }) => {
+export const generateLessonSummary = async ({ lessonId, userId, userRole }) => {
   const lesson = await prisma.lesson.findUnique({
     where: { id: lessonId },
     select: {
@@ -119,20 +127,24 @@ export const generateLessonSummary = async ({ lessonId, userId }) => {
     },
   });
 
-  if (!lesson) throw new Error("Lesson not found.");
+  if (!lesson) throw new AppError("الدرس غير موجود.", 404);
 
+  // الطالب المسجّل أو مدرّس الكورس أو الأدمن (لوحة التحكم) يمكنه توليد الملخص
   const isEnrolled = lesson.course.enrollments.length > 0;
   const isInstructor = lesson.course.instructorId === userId;
+  const isAdmin = userRole === "ADMIN";
 
-  if (!isEnrolled && !isInstructor) {
-    throw new Error(
-      "You must be enrolled in this course to generate a summary.",
+  if (!isEnrolled && !isInstructor && !isAdmin) {
+    throw new AppError(
+      "يجب أن تكون مسجّلاً في هذا الكورس لتوليد الملخص.",
+      403,
     );
   }
 
   if (!lesson.content || lesson.content.trim().length < 50) {
-    throw new Error(
-      "Lesson content is too short to generate a meaningful summary.",
+    throw new AppError(
+      "محتوى الدرس قصير جداً لتوليد ملخص مفيد (50 حرفاً على الأقل).",
+      400,
     );
   }
 
@@ -149,11 +161,13 @@ export const generateLessonSummary = async ({ lessonId, userId }) => {
     lessonContent: lesson.content,
   });
 
-  const summaryText = await callGroq(prompt);
+  const summaryText = await callGemini(prompt);
 
   await prisma.lessonSummary.create({
     data: { lessonId: lesson.id, content: summaryText },
   });
+
+
 
   return { summary: summaryText, cached: false };
 };
@@ -165,6 +179,7 @@ export const generateLessonSummary = async ({ lessonId, userId }) => {
 export const generateLessonQuiz = async ({
   lessonId,
   userId,
+  userRole,
   questionCount,
 }) => {
   const lesson = await prisma.lesson.findUnique({
@@ -185,17 +200,25 @@ export const generateLessonQuiz = async ({
     },
   });
 
-  if (!lesson) throw new Error("Lesson not found.");
+  if (!lesson) throw new AppError("الدرس غير موجود.", 404);
 
+  // الطالب المسجّل أو مدرّس الكورس أو الأدمن (لوحة التحكم) يمكنه توليد الاختبار
   const isEnrolled = lesson.course.enrollments.length > 0;
   const isInstructor = lesson.course.instructorId === userId;
+  const isAdmin = userRole === "ADMIN";
 
-  if (!isEnrolled && !isInstructor) {
-    throw new Error("You must be enrolled in this course to generate a quiz.");
+  if (!isEnrolled && !isInstructor && !isAdmin) {
+    throw new AppError(
+      "يجب أن تكون مسجّلاً في هذا الكورس لتوليد الاختبار.",
+      403,
+    );
   }
 
   if (!lesson.content || lesson.content.trim().length < 50) {
-    throw new Error("Lesson content is too short to generate a quiz.");
+    throw new AppError(
+      "محتوى الدرس قصير جداً لتوليد اختبار مفيد (50 حرفاً على الأقل).",
+      400,
+    );
   }
 
   const existing = await prisma.quiz.findUnique({
@@ -222,7 +245,7 @@ export const generateLessonQuiz = async ({
     questionCount,
   });
 
-  const rawText = await callGroq(prompt);
+  const rawText = await callGemini(prompt, { json: true });
   const parsedQuestions = parseQuizResponse(rawText);
 
   const quiz = await prisma.$transaction(async (tx) => {
@@ -262,7 +285,12 @@ export const generateLessonQuiz = async ({
 // generateCourseQuiz
 // ─────────────────────────────────────────────
 
-export const generateCourseQuiz = async ({ courseId, userId, questionCount = 10 }) => {
+export const generateCourseQuiz = async ({
+  courseId,
+  userId,
+  userRole,
+  questionCount = 10,
+}) => {
   // 1. Check enrollment
   const enrollment = await prisma.enrollment.findFirst({
     where: { courseId: courseId, userId },
@@ -273,9 +301,13 @@ export const generateCourseQuiz = async ({ courseId, userId, questionCount = 10 
     select: { instructorId: true, title: true },
   });
 
-  if (!course) throw new Error("Course not found.");
-  if (!enrollment && course.instructorId !== userId)
-    throw new Error("You must be enrolled in this course.");
+  if (!course) throw new AppError("الكورس غير موجود.", 404);
+
+  const isInstructor = course.instructorId === userId;
+  const isAdmin = userRole === "ADMIN";
+  if (!enrollment && !isInstructor && !isAdmin) {
+    throw new AppError("يجب أن تكون مسجّلاً في هذا الكورس.", 403);
+  }
 
   // 2. Fetch all lesson summaries for this course
   const summaries = await prisma.lessonSummary.findMany({
@@ -284,22 +316,26 @@ export const generateCourseQuiz = async ({ courseId, userId, questionCount = 10 
     orderBy: { lesson: { order: "asc" } },
   });
 
-  if (summaries.length === 0)
-    throw new Error("No summaries found. Please generate lesson summaries first.");
+  if (summaries.length === 0) {
+    throw new AppError(
+      "لا توجد ملخصات لهذا الكورس. يرجى توليد ملخصات الدروس أولاً.",
+      400,
+    );
+  }
 
   // 3. Build combined content from all summaries
   const combinedContent = summaries
     .map((s) => `## ${s.lesson.title}\n${s.content}`)
     .join("\n\n");
 
-  // 4. Call Groq
+  // 4. Call Gemini
   const prompt = quizPrompt({
     lessonTitle: course.title,
     lessonContent: combinedContent,
     questionCount,
   });
 
-  const rawText = await callGroq(prompt);
+  const rawText = await callGemini(prompt, { json: true });
   const parsedQuestions = parseQuizResponse(rawText);
 
   return {
@@ -353,7 +389,7 @@ export const getRecommendations = async ({ userId }) => {
     const fallback = await prisma.course.findMany({
       where: {
         id: { notIn: enrolledCourseIds },
-        isPublished: true,
+        published: true,
       },
       include: { category: true },
       orderBy: { createdAt: "desc" },
@@ -383,7 +419,7 @@ export const getRecommendations = async ({ userId }) => {
     })),
   });
 
-  const rawText = await callGroq(prompt);
+  const rawText = await callGemini(prompt, { json: true });
   const aiData = parseRecommendationResponse(rawText);
 
   return {

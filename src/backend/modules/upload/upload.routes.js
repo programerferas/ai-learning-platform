@@ -3,7 +3,10 @@ import * as uploadController from "./upload.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { allowRoles } from "../../middlewares/role.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
-import { presignUploadSchema } from "../../schemas/upload.schema.js";
+import {
+  presignUploadSchema,
+  presignImageUploadSchema,
+} from "../../schemas/upload.schema.js";
 
 const router = express.Router();
 
@@ -13,6 +16,24 @@ router.post(
   allowRoles("ADMIN"),
   validate(presignUploadSchema),
   uploadController.presignLessonVideo,
+);
+
+// صورة الكورس: نفس منطق فيديو الدرس، لكن للصور وبنفس أدوار مسار إنشاء الكورس
+router.post(
+  "/presign/image",
+  authMiddleware,
+  allowRoles("INSTRUCTOR", "ADMIN"),
+  validate(presignImageUploadSchema),
+  uploadController.presignCourseImage,
+);
+
+// صورة التصنيف: نفس منطق صورة الكورس، وبنفس دور مسار إنشاء التصنيف (ADMIN)
+router.post(
+  "/presign/category-image",
+  authMiddleware,
+  allowRoles("ADMIN"),
+  validate(presignImageUploadSchema),
+  uploadController.presignCategoryImage,
 );
 
 /**
@@ -61,6 +82,54 @@ router.post(
  *         description: Not authenticated
  *       403:
  *         description: Admins only
+ */
+
+/**
+ * @swagger
+ * /uploads/presign/image:
+ *   post:
+ *     summary: Get a presigned URL to upload a course image directly to storage
+ *     tags: [Uploads]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [filename, contentType, size]
+ *             properties:
+ *               filename:
+ *                 type: string
+ *                 example: cover.png
+ *               contentType:
+ *                 type: string
+ *                 description: Must be an image/* MIME type
+ *                 example: image/png
+ *               size:
+ *                 type: integer
+ *                 description: File size in bytes, max 5MB
+ *                 example: 204800
+ *     responses:
+ *       200:
+ *         description: Presigned upload URL, valid for 15 minutes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 uploadUrl:
+ *                   type: string
+ *                 key:
+ *                   type: string
+ *                   example: courses/3f2a1b90-5c4d-4e8f-9a1b-2c3d4e5f6a7b.png
+ *       400:
+ *         description: Validation failed
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Instructors and admins only
  */
 
 export default router;

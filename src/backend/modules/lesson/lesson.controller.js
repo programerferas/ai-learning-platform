@@ -12,7 +12,7 @@ export const createLesson = async (req, res, next) => {
 export const getLessonsByCourse = async (req, res, next) => {
   try {
     const courseId = req.params.id || req.params.courseId;
-    const lessons = await lessonService.getLessonsByCourse(courseId);
+    const lessons = await lessonService.getLessonsByCourse(courseId, req.user);
     res.json(lessons);
   } catch (err) {
     next(err);
@@ -21,7 +21,7 @@ export const getLessonsByCourse = async (req, res, next) => {
 
 export const getLessonById = async (req, res, next) => {
   try {
-    const lesson = await lessonService.getLessonById(req.params.id);
+    const lesson = await lessonService.getLessonById(req.params.id, req.user);
     res.status(200).json(lesson);
   } catch (err) {
     next(err);
@@ -59,7 +59,7 @@ export const completeLessonController = async (req, res, next) => {
 
 export const getAllLessons = async (req, res, next) => {
   try {
-    const lessons = await lessonService.getAllLessons();
+    const lessons = await lessonService.getAllLessons(req.user);
     res.status(200).json(lessons);
   } catch (err) {
     next(err);

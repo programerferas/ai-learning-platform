@@ -13,6 +13,7 @@ import {
   createLesson,
   updateLesson,
   deleteLesson,
+  uploadLessonVideo,
 } from "../../api/Lesson";
 import { AiSummaryCard } from "./AiSummaryCard";
 import { getCourses } from "../../api/courses";
@@ -23,8 +24,10 @@ const EMPTY_FORM = {
   content: "",
   courseId: "",
   order: "",
-  videoUrl: "",
 };
+
+// الحد الأقصى لحجم الفيديو — يطابق MAX_VIDEO_SIZE_BYTES في الباكند
+const MAX_VIDEO_SIZE_BYTES = 500 * 1024 * 1024;
 
 const LessonsPage = () => {
   const [lessons, setLessons] = useState([]);
@@ -38,6 +41,12 @@ const LessonsPage = () => {
   const [editLesson, setEditLesson] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  // Video file (uploaded straight to storage on save)
+  const [videoFile, setVideoFile] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(null);
 
   // Delete
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -63,6 +72,10 @@ const LessonsPage = () => {
   const openCreate = () => {
     setEditLesson(null);
     setForm(EMPTY_FORM);
+    setVideoFile(null);
+    setUploadProgress(null);
+    setFormError("");
+    setFieldErrors({});
     setShowModal(true);
   };
 
@@ -73,14 +86,79 @@ const LessonsPage = () => {
       content: lesson.content || "",
       courseId: lesson.course?.id?.toString() || "",
       order: lesson.order?.toString() || "",
-      videoUrl: lesson.videoUrl || "",
     });
+    setVideoFile(null);
+    setUploadProgress(null);
+    setFormError("");
+    setFieldErrors({});
     setShowModal(true);
   };
 
+  const clearFieldError = (name) =>
+    setFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+
+  const setFieldError = (name, message) =>
+    setFieldErrors((prev) => ({ ...prev, [name]: message }));
+
+  // تحديث حقل مع مسح خطئه فور أن يبدأ المستخدم بالتصحيح
+  const setField = (name, value) => {
+    setForm((prev) => ({ ...prev, [name]: value }));
+    clearFieldError(name);
+  };
+
+  const handleVideoChange = (e) => {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) return setVideoFile(null);
+    if (!file.type.startsWith("video/")) {
+      e.target.value = "";
+      setVideoFile(null);
+      return setFieldError("video", "الملف يجب أن يكون فيديو.");
+    }
+    if (file.size > MAX_VIDEO_SIZE_BYTES) {
+      e.target.value = "";
+      setVideoFile(null);
+      return setFieldError("video", "حجم الفيديو يتجاوز الحد المسموح (500 ميجابايت).");
+    }
+    clearFieldError("video");
+    setVideoFile(file);
+  };
+
+  // نفس قواعد createLessonSchema في الـ backend
+  const validateForm = () => {
+    const errors = {};
+    const title = form.title.trim();
+    if (!title) errors.title = "عنوان الدرس مطلوب.";
+    else if (title.length < 3)
+      errors.title = "عنوان الدرس يجب أن يكون 3 أحرف على الأقل.";
+    else if (title.length > 100)
+      errors.title = "عنوان الدرس يجب ألا يتجاوز 100 حرف.";
+
+    if (!form.courseId) errors.courseId = "يجب اختيار الكورس.";
+
+    if (form.order !== "" && form.order !== undefined) {
+      const n = Number(form.order);
+      if (!Number.isInteger(n) || n < 0)
+        errors.order = "الترتيب يجب أن يكون رقماً صحيحاً غير سالب.";
+    }
+
+    // الباكند يشترط فيديو عند الإنشاء؛ عند التعديل يبقى الفيديو القديم إن لم يُختر ملف
+    if (!editLesson && !videoFile) errors.video = "فيديو الدرس مطلوب.";
+
+    return errors;
+  };
+
   const handleSave = async () => {
-    if (!form.title.trim()) return setError("عنوان الدرس مطلوب.");
-    if (!form.courseId) return setError("يجب اختيار الكورس.");
+    const errors = validateForm();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) {
+      return setFormError("يرجى تصحيح الحقول المحددة بالأحمر.");
+    }
+    setFormError("");
     setSaving(true);
     try {
       const payload = {
@@ -88,6 +166,11 @@ const LessonsPage = () => {
         courseId: form.courseId,
         order: form.order ? Number(form.order) : undefined,
       };
+
+      if (videoFile) {
+        setUploadProgress(0);
+        payload.videoKey = await uploadLessonVideo(videoFile, setUploadProgress);
+      }
 
       if (editLesson) {
         const res = await updateLesson(editLesson.id, payload);
@@ -99,10 +182,23 @@ const LessonsPage = () => {
         setLessons((prev) => [res, ...prev]);
       }
       setShowModal(false);
-    } catch {
-      setError("فشل حفظ الدرس.");
+    } catch (err) {
+      // الـ backend يعيد errors: [{ field, message }] من zod — نوزّعها على الحقول
+      const data = err?.response?.data;
+      const backendErrors = {};
+      for (const e of data?.errors ?? []) {
+        const field = e.field === "videoKey" ? "video" : e.field;
+        if (field && !backendErrors[field]) backendErrors[field] = e.message;
+      }
+      setFieldErrors(backendErrors);
+      setFormError(
+        Object.keys(backendErrors).length
+          ? "يرجى تصحيح الحقول المحددة بالأحمر."
+          : data?.message || "فشل حفظ الدرس.",
+      );
     } finally {
       setSaving(false);
+      setUploadProgress(null);
     }
   };
 
@@ -153,17 +249,6 @@ const LessonsPage = () => {
         <div className="card">جاري التحميل...</div>
       ) : (
         <>
-          {/* ── AI Summary Card ── */}
-          <label>محتوى الدرس</label>
-          <textarea
-            rows={4}
-            value={form.content}
-            onChange={(e) => setForm({ ...form, content: e.target.value })}
-            placeholder="اكتب محتوى الدرس هنا..."
-          />
-
-          {editLesson && <AiSummaryCard lessonId={editLesson.id} />}
-
           {/* ── Table ── */}
           <div className="card">
             <div className="card-header">
@@ -255,18 +340,33 @@ const LessonsPage = () => {
               />
             </div>
             <div className="modal-body">
+              {formError && (
+                <div className="modal-error">
+                  {formError}
+                  <FaTimes
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setFormError("")}
+                  />
+                </div>
+              )}
+
               <label>عنوان الدرس *</label>
               <input
                 type="text"
                 value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                onChange={(e) => setField("title", e.target.value)}
                 placeholder="أدخل عنوان الدرس"
+                className={fieldErrors.title ? "input-error" : ""}
               />
+              {fieldErrors.title && (
+                <small className="field-error">{fieldErrors.title}</small>
+              )}
 
               <label>الكورس *</label>
               <select
                 value={form.courseId}
-                onChange={(e) => setForm({ ...form, courseId: e.target.value })}
+                onChange={(e) => setField("courseId", e.target.value)}
+                className={fieldErrors.courseId ? "input-error" : ""}
               >
                 <option value="">-- اختر الكورس --</option>
                 {courses.map((c) => (
@@ -275,31 +375,86 @@ const LessonsPage = () => {
                   </option>
                 ))}
               </select>
+              {fieldErrors.courseId && (
+                <small className="field-error">{fieldErrors.courseId}</small>
+              )}
 
               <label>الترتيب</label>
               <input
                 type="number"
                 min="1"
                 value={form.order}
-                onChange={(e) => setForm({ ...form, order: e.target.value })}
+                onChange={(e) => setField("order", e.target.value)}
                 placeholder="1"
+                className={fieldErrors.order ? "input-error" : ""}
               />
+              {fieldErrors.order && (
+                <small className="field-error">{fieldErrors.order}</small>
+              )}
 
-              <label>رابط الفيديو</label>
+              <label>فيديو الدرس {editLesson ? "" : "*"}</label>
               <input
-                type="text"
-                value={form.videoUrl}
-                onChange={(e) => setForm({ ...form, videoUrl: e.target.value })}
-                placeholder="https://..."
+                type="file"
+                accept="video/*"
+                onChange={handleVideoChange}
+                disabled={saving}
+                className={fieldErrors.video ? "input-error" : ""}
               />
+              {fieldErrors.video && (
+                <small className="field-error">{fieldErrors.video}</small>
+              )}
+              {videoFile ? (
+                <small style={{ color: "#555", display: "block", marginTop: 4 }}>
+                  {videoFile.name} ({(videoFile.size / (1024 * 1024)).toFixed(1)} MB)
+                </small>
+              ) : (
+                editLesson?.videoUrl && (
+                  <small style={{ color: "#888", display: "block", marginTop: 4 }}>
+                    يوجد فيديو محفوظ — اختر ملفاً جديداً لاستبداله
+                  </small>
+                )
+              )}
+              {uploadProgress !== null && (
+                <div style={{ marginTop: 6 }}>
+                  <div
+                    style={{
+                      height: 6,
+                      background: "#e5e7eb",
+                      borderRadius: 3,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${uploadProgress}%`,
+                        height: "100%",
+                        background: "#2563eb",
+                        transition: "width .2s",
+                      }}
+                    />
+                  </div>
+                  <small style={{ color: "#555" }}>
+                    جاري رفع الفيديو... {uploadProgress}%
+                  </small>
+                </div>
+              )}
 
               <label>محتوى الدرس</label>
               <textarea
                 rows={4}
                 value={form.content}
-                onChange={(e) => setForm({ ...form, content: e.target.value })}
+                onChange={(e) => setField("content", e.target.value)}
                 placeholder="اكتب محتوى الدرس هنا..."
               />
+
+              {/* ── AI Summary (needs a saved lesson ID) ── */}
+              {editLesson ? (
+                <AiSummaryCard lessonId={editLesson.id} />
+              ) : (
+                <small style={{ color: "#888", display: "block", marginTop: 8 }}>
+                  احفظ الدرس أولاً ثم افتحه للتعديل لتوليد ملخص بالذكاء الاصطناعي.
+                </small>
+              )}
             </div>
             <div className="modal-footer">
               <button
@@ -314,7 +469,9 @@ const LessonsPage = () => {
                 disabled={saving}
               >
                 {saving
-                  ? "جاري الحفظ..."
+                  ? uploadProgress !== null
+                    ? "جاري رفع الفيديو..."
+                    : "جاري الحفظ..."
                   : editLesson
                     ? "حفظ التعديلات"
                     : "إنشاء الدرس"}

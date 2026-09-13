@@ -44,13 +44,17 @@ model PendingUser {
 }
 
 model Category {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  slug      String   @unique
-  thumbnail String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  courses   Course[]
+  id           String   @id @default(uuid())
+  name         String   @unique
+  slug         String   @unique
+  description  String?
+  // اختياري: التصنيفات الجديدة تستعمل thumbnailKey ويُولَّد رابط موقّع عند القراءة
+  thumbnail    String?
+  // مفتاح الصورة في التخزين (categories/<uuid>.<ext>) كما يولّده POST /uploads/presign/category-image
+  thumbnailKey String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  courses      Course[]
 }
 
 model Course {
@@ -59,6 +63,8 @@ model Course {
   description  String
   // اختياري لأن العمود في قاعدة البيانات يقبل NULL وفيه صفوف قديمة بلا صورة
   thumbnail    String?
+  // مفتاح الصورة في التخزين (courses/<uuid>.<ext>) كما يولّده POST /uploads/presign/image
+  thumbnailKey String?
   instructorId String?
   instructor   User?   @relation("InstructorCourses", fields: [instructorId], references: [id], onDelete: SetNull)
   createdAt    DateTime     @default(now())

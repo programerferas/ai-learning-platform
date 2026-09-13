@@ -7,11 +7,6 @@ import {
   createCategorySchema,
   updateCategorySchema,
 } from "../../schemas/category.schema.js";
-import {
-  upload,
-  uploadToSupabase,
-} from "../../middlewares/upload.middleware.js";
-
 const router = express.Router();
 
 router.get("/", categoryController.getAllCategories);
@@ -21,8 +16,6 @@ router.post(
   "/",
   authMiddleware,
   allowRoles("ADMIN"),
-  upload.single("thumbnail"),
-  uploadToSupabase,
   validate(createCategorySchema),
   categoryController.createCategory,
 );

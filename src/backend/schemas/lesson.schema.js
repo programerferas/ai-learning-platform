@@ -25,3 +25,8 @@ export const updateLessonSchema = z.object({
   videoKey: videoKeySchema.optional(),
   order: z.number().int().min(0).optional(),
 });
+
+export const completeLessonSchema = z.object({
+  courseId: z.string().uuid("معرف الدورة غير صالح"),
+  lessonId: z.string().uuid("معرف الدرس غير صالح"),
+});

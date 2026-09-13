@@ -71,6 +71,8 @@
   background: var(--bg);
   color: var(--text-dark);
   min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
 }
 
 /* ─── HERO ──────────────────────────────────────────── */
@@ -478,6 +480,83 @@
 
 .submit-btn:hover::after { transform: translateX(100%); }
 .submit-btn:active { transform: translateY(0); }
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.submit-btn:disabled:hover {
+  background: var(--purple);
+  color: var(--white);
+}
+
+.field input:disabled,
+.field textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ─── LOGIN REQUIRED (guests) ────────────────────────── */
+.login-required {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  background: rgba(72,35,73,0.06);
+  border: 1.5px dashed rgba(206,156,37,0.55);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  margin-top: 0.5rem;
+  animation: scaleIn 0.4s ease both;
+}
+
+.login-required-ico {
+  width: 42px; height: 42px;
+  min-width: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gold-alpha);
+  border: 1px solid rgba(206,156,37,0.35);
+  border-radius: 10px;
+  font-size: 1.2rem;
+}
+
+.login-required-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--purple);
+  margin-bottom: 0.2rem;
+}
+
+.login-required-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.login-required-sub a {
+  color: var(--gold);
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+.login-required-sub a:hover { border-bottom-color: var(--gold); }
+
+/* honeypot: خارج الشاشة وليس display:none حتى لا تتجاهله البوتات البسيطة */
+.hp-field {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
 .submit-icon {
   font-size: 1rem;

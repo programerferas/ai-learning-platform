@@ -1,38 +1,24 @@
 import express from "express";
-import { getAllUsers, getUserById, updateUser, deleteUser } from './user.controller.js';
+import {
+  getAllUsers,
+  getUserById,
+  updateUser,
+  deleteUser,
+} from "./user.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { allowRoles } from "../../middlewares/role.middleware.js";
-
-
+import { validate } from "../../middlewares/validate.middleware.js";
+import { adminUpdateUserSchema } from "../../schemas/user.schema.js";
 
 const router = express.Router();
-// Get all users - admin only
-router.get(
-  "/",
-  authMiddleware,
-  allowRoles("ADMIN"),
-  getAllUsers,
-);
 
-// Get single user
-router.get("/:id", authMiddleware, getUserById);
+// إدارة المستخدمين كلها للأدمن فقط.
+// بيانات المستخدم نفسه تأتي من /auth/me و /auth/update-profile.
+router.use(authMiddleware, allowRoles("ADMIN"));
 
-// Update user - admin only
-router.put(
-  "/:id",
-  authMiddleware,
-  allowRoles("ADMIN"),
-  updateUser,
-);
-
-// Delete user - admin only
-router.delete(
-  "/:id",
-  authMiddleware,
-  allowRoles("ADMIN"),
-  deleteUser,
-);
-
-
+router.get("/", getAllUsers);
+router.get("/:id", getUserById);
+router.put("/:id", validate(adminUpdateUserSchema), updateUser);
+router.delete("/:id", deleteUser);
 
 export default router;

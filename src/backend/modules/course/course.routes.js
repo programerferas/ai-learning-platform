@@ -4,10 +4,6 @@ import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { allowRoles } from "../../middlewares/role.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import {
-  upload,
-  uploadToSupabase,
-} from "../../middlewares/upload.middleware.js";
-import {
   createCourseSchema,
   updateCourseSchema,
 } from "../../schemas/course.schema.js";
@@ -23,8 +19,6 @@ router.post(
   "/",
   authMiddleware,
   allowRoles("INSTRUCTOR", "ADMIN"),
-  upload.single("thumbnail"),
-  uploadToSupabase,
   validate(createCourseSchema),
   courseController.createCourse,
 );
@@ -32,8 +26,6 @@ router.put(
   "/:id",
   authMiddleware,
   allowRoles("INSTRUCTOR", "ADMIN"),
-  upload.single("thumbnail"),
-  uploadToSupabase,
   validate(updateCourseSchema),
   courseController.updateCourse,
 );
@@ -107,17 +99,15 @@ router.get(
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
- *             required: [title, description, price, level, categoryId]
+ *             required: [title, description, level, categoryId]
  *             properties:
  *               title:
  *                 type: string
  *               description:
  *                 type: string
- *               price:
- *                 type: number
  *               level:
  *                 type: string
  *                 enum: [BEGINNER, INTERMEDIATE, ADVANCED]
@@ -125,7 +115,11 @@ router.get(
  *                 type: string
  *               thumbnail:
  *                 type: string
- *                 format: binary
+ *                 description: Full image URL (legacy)
+ *               thumbnailKey:
+ *                 type: string
+ *                 description: Storage key returned by POST /uploads/presign/image
+ *                 example: courses/3f2a1b90-5c4d-4e8f-9a1b-2c3d4e5f6a7b.png
  *     responses:
  *       201:
  *         description: Course created
@@ -149,7 +143,7 @@ router.get(
  *           type: string
  *     requestBody:
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             properties:
@@ -157,11 +151,18 @@ router.get(
  *                 type: string
  *               description:
  *                 type: string
- *               price:
- *                 type: number
+ *               level:
+ *                 type: string
+ *                 enum: [BEGINNER, INTERMEDIATE, ADVANCED]
+ *               categoryId:
+ *                 type: string
  *               thumbnail:
  *                 type: string
- *                 format: binary
+ *                 description: Full image URL (legacy)
+ *               thumbnailKey:
+ *                 type: string
+ *                 description: Storage key returned by POST /uploads/presign/image
+ *                 example: courses/3f2a1b90-5c4d-4e8f-9a1b-2c3d4e5f6a7b.png
  *     responses:
  *       200:
  *         description: Course updated

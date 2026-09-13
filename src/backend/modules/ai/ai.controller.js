@@ -11,8 +11,9 @@ export const chatController = async (req, res, next) => {
   try {
     const { message, sessionId, lessonId } = req.body;
     const userId = req.user.id;
+    const userRole = req.user.role;
 
-    const result = await chatWithAssistant({ userId, message, sessionId, lessonId });
+    const result = await chatWithAssistant({ userId, userRole, message, sessionId, lessonId });
 
     res.status(200).json({
       success: true,
@@ -28,7 +29,11 @@ export const summaryController = async (req, res, next) => {
     const { lessonId } = req.params;
     const userId = req.user.id;
 
-    const result = await generateLessonSummary({ lessonId, userId });
+    const result = await generateLessonSummary({
+      lessonId,
+      userId,
+      userRole: req.user.role,
+    });
 
     res.status(200).json({
       success: true,
@@ -45,7 +50,12 @@ export const quizController = async (req, res, next) => {
     const userId = req.user.id;
     const { questionCount } = req.body;
 
-    const result = await generateLessonQuiz({ lessonId, userId, questionCount: questionCount ?? 5 });
+    const result = await generateLessonQuiz({
+      lessonId,
+      userId,
+      userRole: req.user.role,
+      questionCount: questionCount ?? 5,
+    });
 
     res.status(200).json({
       success: true,

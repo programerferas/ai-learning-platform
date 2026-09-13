@@ -1,66 +1,44 @@
 import * as userService from "./user.service.js";
 
+// كل الأخطاء تذهب للمعالج المركزي: P2025 → 404، AppError → رمزه،
+// وأي شيء آخر → 500 برسالة عامة في الإنتاج بدل تسريب error.message
 
-export const getAllUsers = async (req, res) => {
+export const getAllUsers = async (req, res, next) => {
   try {
     const users = await userService.getAllUsersService();
-    return res.status(200).json({
-      success: true,
-      data: users,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(200).json({ success: true, data: users });
+  } catch (err) {
+    next(err);
   }
 };
 
-export const getUserById = async (req, res) => {
+export const getUserById = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const user = await userService.getUserByIdService(id);
-    return res.status(200).json({
-      success: true,
-      data: user,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    const user = await userService.getUserByIdService(req.params.id);
+    res.status(200).json({ success: true, data: user });
+  } catch (err) {
+    next(err);
   }
 };
 
-export const updateUser = async (req, res) => {
+export const updateUser = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const user = await userService.updateUserService(id, req.body);
-    return res.status(200).json({
-      success: true,
-      data: user,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    const user = await userService.updateUserService(
+      req.params.id,
+      req.body,
+      req.user,
+    );
+    res.status(200).json({ success: true, data: user });
+  } catch (err) {
+    next(err);
   }
 };
 
-export const deleteUser = async (req, res) => {
+export const deleteUser = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    await userService.deleteUserService(id);
-    return res.status(200).json({
-      success: true,
-      message: "User deleted successfully",
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    await userService.deleteUserService(req.params.id, req.user);
+    res.status(200).json({ success: true, message: "User deleted successfully" });
+  } catch (err) {
+    next(err);
   }
 };
-

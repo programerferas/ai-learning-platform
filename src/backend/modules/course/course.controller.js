@@ -2,10 +2,7 @@ import * as courseService from "./course.service.js";
 
 export const createCourse = async (req, res, next) => {
   try {
-    const course = await courseService.createCourse(
-      { ...req.body, thumbnail: req.fileUrl || null },
-      req.user
-    );
+    const course = await courseService.createCourse(req.body, req.user);
     res.status(201).json(course);
   } catch (err) {
     next(err);
@@ -34,7 +31,7 @@ export const updateCourse = async (req, res, next) => {
   try {
     const course = await courseService.updateCourse(
       req.params.id,
-      { ...req.body, ...(req.fileUrl && { thumbnail: req.fileUrl }) },
+      req.body,
       req.user
     );
     res.status(200).json(course);

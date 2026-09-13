@@ -1,11 +1,10 @@
-import { getOverview } from"./dashboard.service.js";
+import { getOverview } from "./dashboard.service.js";
 
-export const getDashboardOverviewController = async (req, res) => {
+export const getDashboardOverviewController = async (req, res, next) => {
   try {
     const data = await getOverview();
     res.json({ success: true, data });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch (err) {
+    next(err); // المعالج المركزي يخفي تفاصيل أخطاء القاعدة في الإنتاج
   }
 };
-

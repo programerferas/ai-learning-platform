@@ -1,5 +1,8 @@
 import { Router } from "express";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
+import { allowRoles } from "../../middlewares/role.middleware.js";
+import { validate } from "../../middlewares/validate.middleware.js";
+import { createReviewSchema, updateReviewSchema } from "../../schemas/review.schema.js";
 import {
   createReviewController,
   getReviewsByCourseController,
@@ -13,12 +16,14 @@ const router = Router();
 router.post(
   "/courses/:courseId/reviews",
   authMiddleware,
+  validate(createReviewSchema),
   createReviewController,
 );
 router.get("/courses/:courseId/reviews", getReviewsByCourseController);
 router.put(
   "/courses/:courseId/reviews/:reviewId",
   authMiddleware,
+  validate(updateReviewSchema),
   updateReviewController,
 );
 router.delete(
@@ -27,7 +32,8 @@ router.delete(
   deleteReviewController,
 );
 
-router.get("/", getAllReviewsController);
+// قائمة لوحة التحكم: تُعيد بريد كل مقيّم، لذلك هي للأدمن فقط
+router.get("/", authMiddleware, allowRoles("ADMIN"), getAllReviewsController);
 
 /**
  * @swagger

@@ -1,4 +1,5 @@
 // src/api/courses.js
+import axios from "axios";
 import api from "./axios";
 
 export const getCourses    = (params) => api.get("/courses", { params });
@@ -20,6 +21,31 @@ export const togglePublish = (id) => api.patch(`/courses/${id}/publish`);
 // Get course progress
 export const getCourseProgress = (courseId) => api.get(`/courses/${courseId}/progress`);
 
+/**
+ * Upload a course image directly to storage (bytes never pass through the API).
+ * Same flow as uploadLessonVideo:
+ * 1. POST /uploads/presign/image { filename, contentType, size } -> { uploadUrl, key }
+ * 2. PUT the file to uploadUrl
+ * Returns the storage key to send as `thumbnailKey` when creating/updating a course.
+ * onProgress(percent) is optional.
+ */
+export const uploadCourseImage = async (file, onProgress) => {
+  const { uploadUrl, key } = await api
+    .post("/uploads/presign/image", {
+      filename: file.name,
+      contentType: file.type,
+      size: file.size,
+    })
+    .then((r) => r.data);
 
+  // Plain axios: the presigned URL is on the storage host, not our API,
+  // so no baseURL / cookies must be attached.
+  await axios.put(uploadUrl, file, {
+    headers: { "Content-Type": file.type },
+    onUploadProgress: (e) => {
+      if (onProgress && e.total) onProgress(Math.round((e.loaded * 100) / e.total));
+    },
+  });
 
-
+  return key;
+};

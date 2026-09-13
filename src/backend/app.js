@@ -1,4 +1,4 @@
-import { env } from "./config/env.js";
+import { env, IS_PROD } from "./config/env.js";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -47,8 +47,10 @@ app.use(
 );
 
 // ── BODY PARSER WITH SIZE LIMIT ───────────────────
-app.use(express.json({ limit: "10kb" }));
-app.use(express.urlencoded({ extended: true, limit: "10kb" }));
+// محتوى الدرس نص عربي (~3 بايت/حرف) ورسائل المحادثة حتى 2000 حرف — 10kb كان يقطعها.
+// الملفات لا تمرّ من هنا أصلاً (روابط رفع موقّعة)، فـ 1mb سقف آمن للـ JSON.
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // ── PREVENT HTTP PARAMETER POLLUTION ─────────────
 app.use(hpp());
@@ -89,8 +91,13 @@ const aiLimiter = rateLimit({
 
 app.use(globalLimiter);
 
-// ── SWAGGER ───────────────────────────────────────
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// ── HEALTH CHECK (for load balancers / uptime monitors) ──
+app.get("/health", (req, res) => res.status(200).json({ status: "ok" }));
+
+// ── SWAGGER (development only) ────────────────────
+if (!IS_PROD) {
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
 
 // ── ROUTES ────────────────────────────────────────
 app.use("/api/auth/me", meLimiter);   
@@ -105,6 +112,11 @@ app.use("/api/users",userRoutes);
 app.use("/api/reviews", reviewRouter);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/uploads", uploadRoutes);
+
+// ── 404 (JSON, not Express's HTML page) ───────────
+app.use((req, res) => {
+  res.status(404).json({ message: "المسار غير موجود" });
+});
 
 // ── ERROR HANDLER ─────────────────────────────────
 app.use(errorMiddleware);
