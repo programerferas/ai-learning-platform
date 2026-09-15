@@ -3,11 +3,11 @@ import { createPresignedDownloadUrl } from "../../lib/storage.js";
 import { AppError } from "../../utils/appError.js";
 import { Prisma } from "@prisma/client";
 
-const PLAYBACK_URL_TTL_SECONDS = 2 * 60 * 60; // صلاحية رابط المشاهدة الموقّع
+const PLAYBACK_URL_TTL_SECONDS = 30 * 60; // صلاحية رابط المشاهدة الموقّع
 
 /**
  * الرابط القابل للتشغيل لدرس واحد:
- * إن وُجد videoKey نولّد رابط GET موقّعاً صالحاً ساعتين،
+ * إن وُجد videoKey نولّد رابط GET موقّعاً صالحاً 30 دقيقة，
  * وإلا نُعيد videoUrl القديم كما هو — الدروس المرفوعة يدوياً تبقى تعمل.
  * اسم الحقل في الرد يبقى videoUrl حتى لا يتغيّر شكل الاستجابة على الواجهة.
  */

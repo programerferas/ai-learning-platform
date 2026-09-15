@@ -1,5 +1,6 @@
 // modules/ai/ai.routes.js
 import { Router } from "express";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import { chatSchema, quizSchema } from "../../schemas/ai.schema.js";
@@ -16,19 +17,64 @@ export const router = Router();
 // All AI routes require authentication
 router.use(authMiddleware);
 
+/* ------------------------- حدود الاستخدام لكل حساب ------------------------- */
+// المفتاح هو معرّف المستخدم لا عنوان IP: حساب واحد لا يستطيع استهلاك
+// حصة الجميع، ومستخدمو الشبكة الواحدة (جامعة/مكتب) لا يحجبون بعضهم.
+// يجب أن تأتي بعد authMiddleware حتى يكون req.user موجوداً.
+const perUser = (req) => req.user?.id ?? ipKeyGenerator(req.ip);
+
+const aiLimiter = (windowMs, max, message) =>
+  rateLimit({
+    windowMs,
+    max,
+    keyGenerator: perUser,
+    message: { message },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+// دفعة قصيرة: 15 طلباً في الدقيقة لكل حساب
+const aiBurstLimiter = aiLimiter(
+  60 * 1000,
+  15,
+  "طلبات كثيرة للمساعد الذكي، انتظر دقيقة ثم حاول مجدداً",
+);
+
+// حصة يومية: سقف التكلفة لكل حساب مهما كانت الدفعات
+const aiDailyLimiter = aiLimiter(
+  24 * 60 * 60 * 1000,
+  200,
+  "استنفدت حصتك اليومية من المساعد الذكي، حاول غداً",
+);
+
+// التوليد (اختبار كامل، توصيات) أغلى من رسالة محادثة — حصة أضيق
+const aiGenerationLimiter = aiLimiter(
+  60 * 60 * 1000,
+  20,
+  "طلبات توليد كثيرة، حاول بعد ساعة",
+);
+
+router.use(aiBurstLimiter, aiDailyLimiter);
+
 // POST /api/ai/chat
 router.post("/chat", validate(chatSchema), chatController);
 
-// POST /api/ai/summary/:lessonId
+// POST /api/ai/summary/:lessonId  (مخزّن مؤقتاً لكل درس)
 router.post("/summary/:lessonId", summaryController);
 
-//post /api/ai/course-quiz/:courseId
-router.post("/course-quiz/:courseId", courseQuizController);
-// POST /api/ai/quiz/:lessonId
+// POST /api/ai/course-quiz/:courseId
+router.post(
+  "/course-quiz/:courseId",
+  aiGenerationLimiter,
+  validate(quizSchema),
+  courseQuizController,
+);
+
+// POST /api/ai/quiz/:lessonId  (مخزّن مؤقتاً لكل درس)
 router.post("/quiz/:lessonId", validate(quizSchema), quizController);
 
 // GET /api/ai/recommendations
-router.get("/recommendations", recommendationsController);
+router.get("/recommendations", aiGenerationLimiter, recommendationsController);
 
 /**
  * @swagger

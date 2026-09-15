@@ -76,6 +76,7 @@ export const courseQuizController = async (req, res, next) => {
     const result = await generateCourseQuiz({
       courseId,
       userId,
+      userRole: req.user.role,
       questionCount: questionCount ?? 10,
     });
 

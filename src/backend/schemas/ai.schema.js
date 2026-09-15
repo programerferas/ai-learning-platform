@@ -10,7 +10,7 @@ export const chatSchema = z.object({
 
   sessionId: z.string().uuid().optional(),
 
-  lessonId: z.string().optional(),
+  lessonId: z.string().uuid("معرف الدرس غير صالح").optional(),
 });
 
 export const summarySchema = z.object({

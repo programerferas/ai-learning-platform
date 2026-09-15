@@ -49,11 +49,12 @@ Students can:
 * Track lesson progress
 * Track course progress
 * Generate AI-powered lesson summaries
-* Take course quizzes
+* Take AI-generated lesson quizzes and course quizzes
 * Ask questions through the AI assistant
+* Get AI-generated course recommendations
+* Resume a course from the last lesson
 * Write course reviews
 * Rate courses
-* View notifications
 * Manage their profile
 
 ---
@@ -64,11 +65,47 @@ The platform integrates **Google Gemini** to provide AI-powered learning functio
 
 Current AI features include:
 
-* Lesson summaries
-* Quiz generation
-* AI learning assistant (Under development)
+* Lesson summaries (generated once per lesson and stored in the database)
+* Lesson quizzes (3–15 multiple-choice questions, generated once per lesson and stored)
+* Course quizzes built from the lesson summaries of a course
+* AI learning assistant (chat) with per-user conversation history, optionally scoped to a lesson
+* Course recommendations with AI-written explanations
 
 AI requests are handled by the backend so that API credentials are not exposed to the frontend.
+
+### AI request protection
+
+Every AI request passes through the following chain before it can reach Gemini:
+
+```text
+verified login
+   ↓
+per-account burst limit
+   ↓
+daily / hourly limits
+   ↓
+Zod validation
+   ↓
+lesson / course authorization
+   ↓
+cache
+   ↓
+Gemini
+   ↓
+retry / backoff
+```
+
+* **Authentication** – all `/api/ai` routes require a verified, logged-in user.
+* **Rate limits per account** (keyed by user ID, not IP):
+  * 15 requests / minute
+  * 20 requests / hour on the expensive generators (course quiz, recommendations)
+  * 200 requests / day
+* **Validation** – Zod schemas bound message length (≤ 2000 characters), question count (3–15) and ID formats.
+* **Authorization** – summaries, quizzes and lesson-scoped chat are only available to students enrolled in the course, the course instructor, or an admin.
+* **Caching** – lesson summaries and lesson quizzes are stored in the database; course quizzes and recommendations are cached in memory (6 h / 24 h) so repeated requests do not call Gemini again.
+* **Retry / backoff** – transient Gemini errors (429 / 500 / 503) are retried with exponential backoff; if they persist the client receives a clean 503 response.
+
+The AI rate limiter and the in-memory cache are **instance-local**: they live in the memory of a single backend process and are not shared across multiple instances.
 
 ---
 
@@ -85,8 +122,8 @@ Admin functionality includes:
 * Course thumbnails
 * Category thumbnails
 * Review moderation
-* Platform statistics
-* Login statistics
+* Contact-form notifications inbox
+* Platform statistics (users, courses, lessons, reviews, recent enrollments)
 
 ---
 
@@ -169,6 +206,8 @@ The backend includes several security mechanisms:
 * Environment variable validation
 * Centralized application errors
 * Generic authentication error responses
+* Signed, expiring storage URLs for uploads and video playback
+* Per-account rate limits, validation, authorization and caching on AI endpoints (see above)
 
 Sensitive credentials and secrets are stored in environment variables.
 
@@ -230,7 +269,14 @@ Students can:
 
 ### INSTRUCTOR
 
-The system includes an instructor role for course/content ownership.
+Instructors can:
+
+* Create, edit, delete and publish/unpublish their own courses
+* Add, edit, reorder and delete lessons in their own courses
+* Upload course thumbnails and lesson videos
+* Use the AI features on their own courses
+
+Ownership is checked on the backend: an instructor cannot modify another instructor's course.
 
 ### ADMIN
 
@@ -301,30 +347,29 @@ Main API areas include:
 /api/reviews
 /api/uploads
 /api/ai
+/api/notifications
+/api/dashboard
+/health
 ```
 
-API responses use a consistent structure.
-
-### Success
+Error responses use a consistent structure:
 
 ```json
 {
-  "success": true,
-  "data": {}
+  "message": "Something went wrong"
 }
 ```
 
-### Error
+Validation errors additionally include the failing fields:
 
 ```json
 {
-  "success": false,
-  "message": "Something went wrong",
-  "code": "ERROR_CODE"
+  "message": "First error message",
+  "errors": [{ "field": "email", "message": "..." }]
 }
 ```
 
-The backend uses centralized error handling through application errors.
+The backend uses centralized error handling through application errors, so expected failures return proper HTTP status codes (400 / 401 / 403 / 404 / 409 / 429) and unexpected ones return a generic 500 in production.
 
 ---
 
@@ -337,13 +382,17 @@ Main application pages include:
 ```text
 Home
 Courses
+Categories
 Course Details
-Login
-Register
-Dashboard
-Lesson
-Profile
-Admin Dashboard
+Login / Register
+Forgot / Reset Password
+Email Verification
+Lesson (video, curriculum, progress, AI summary, AI chat)
+Quiz
+My Courses
+Account Settings
+Contact / About
+Admin Dashboard (overview, users, courses, lessons, categories, reviews, notifications)
 ```
 
 Frontend technologies:
@@ -427,27 +476,33 @@ Simplified structure:
 src/
 │
 ├── frontend/
-│   ├── components/
-│   ├── pages/
-│   ├── api/
-│   ├── context/
-│   └── ...
+│   ├── src/
+│   │   ├── api/            # one Axios wrapper per backend module
+│   │   ├── components/
+│   │   ├── context/        # AuthContext
+│   │   ├── pages/          # public, student (lessonPage/), AdminDashboard/
+│   │   └── App.jsx         # routes and route guards
+│   ├── .env.example
+│   └── package.json
 │
 └── backend/
-    ├── controllers/
-    ├── services/
-    ├── routes/
-    ├── middleware/
-    ├── schemas/
-    ├── lib/
-    └── ...
-    
-prisma/
-├── schema.prisma
-└── migrations/
+    ├── app.js              # Express app: security, CORS, limits, routes, errors
+    ├── server.js           # boot, cleanup job, graceful shutdown
+    ├── config/             # env validation, cookie options, swagger
+    ├── middlewares/        # auth, roles, validate, error handler
+    ├── modules/            # one folder per feature: routes → controller → service
+    │   ├── ai/  auth/  category/  course/  dashboard/  enrollment/
+    │   ├── lesson/  notifications/  review/  upload/  user/
+    ├── schemas/            # Zod request schemas
+    ├── lib/                # prisma, mailer, storage (S3), gemini
+    ├── utils/              # AppError, logger, jwt, prompts, ttlCache
+    ├── prisma/
+    │   ├── schema.prisma
+    │   ├── migrations/
+    │   └── seed.js         # creates the first admin
+    ├── .env.example
+    └── package.json
 
-.env.example
-package.json
 README.md
 ```
 
@@ -502,31 +557,48 @@ cd ai-learning-platform
 
 ### 2. Install dependencies
 
+The frontend and backend are separate applications, each with its own `package.json`:
+
 ```bash
-npm install
+cd src/backend && npm install
+cd ../frontend && npm install
 ```
 
 ### 3. Configure environment variables
 
-Create a `.env` file based on `.env.example`.
+Create a `.env` file in each application based on its `.env.example`.
 
-Required environment variables depend on the configured services, including:
+Backend (`src/backend/.env`) – the server validates these at startup and refuses to boot if required values are missing:
 
 ```env
+NODE_ENV=development
+PORT=5000
 DATABASE_URL=
+
 JWT_SECRET=
+JWT_EXPIRES_IN=7d
 
-FRONTEND_URLS=
+CLIENT_URL=http://localhost:5173
+API_URL=http://localhost:5000
+FRONTEND_URLS=http://localhost:5173
 
-SMTP_HOST=
-SMTP_PORT=
-SMTP_USER=
-SMTP_PASSWORD=
+EMAIL_USER=
+EMAIL_PASS=
 
-SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_S3_ENDPOINT=
+SUPABASE_S3_REGION=
+SUPABASE_S3_ACCESS_KEY_ID=
+SUPABASE_S3_SECRET_ACCESS_KEY=
+SUPABASE_STORAGE_BUCKET=
 
 GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.6-flash
+```
+
+Frontend (`src/frontend/.env`):
+
+```env
+VITE_API_URL=http://localhost:5000
 ```
 
 **Never commit your real `.env` file or secret keys to GitHub.**
@@ -535,37 +607,51 @@ GEMINI_API_KEY=
 
 ## 🗃️ Database Setup
 
-Run Prisma migrations:
+From `src/backend`:
+
+Apply migrations (development):
 
 ```bash
 npx prisma migrate dev
 ```
 
-Generate Prisma Client:
+Apply migrations (production):
 
 ```bash
-npx prisma generate
+npm run prisma:migrate
 ```
 
-If the project contains seed data:
+Generate Prisma Client (also runs automatically after `npm install`):
 
 ```bash
-npm run seed
+npm run prisma:generate
+```
+
+Create the first admin account:
+
+```bash
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='Strong1pass' npm run prisma:seed
 ```
 
 ---
 
 ## ▶️ Running the Project
 
-Run the development environment using the scripts defined in `package.json`.
-
-Example:
+Backend (from `src/backend`):
 
 ```bash
-npm run dev
+npm run dev      # development with nodemon – http://localhost:5000
+npm start        # production
 ```
 
-If frontend and backend are configured as separate applications, run their respective development commands.
+Frontend (from `src/frontend`):
+
+```bash
+npm run dev      # Vite dev server – http://localhost:5173
+npm run build    # production bundle in dist/
+```
+
+A health check is available at `GET /health`. API docs (Swagger) are served at `/api-docs` in development only.
 
 ---
 

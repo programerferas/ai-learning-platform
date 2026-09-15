@@ -81,13 +81,6 @@ const meLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const aiLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 20,
-  message: { message: "Too many AI requests, please slow down" },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 app.use(globalLimiter);
 
@@ -106,7 +99,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/lessons", lessonRoutes);
 app.use("/api/enrollments", enrollmentRoutes);
-app.use("/api/ai", aiLimiter, aiRoutes);
+app.use("/api/ai", aiRoutes); // حدود لكل حساب داخل ai.routes.js
 app.use("/api/dashboard",dashboardRoutes);
 app.use("/api/users",userRoutes);
 app.use("/api/reviews", reviewRouter);

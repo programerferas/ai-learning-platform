@@ -12,6 +12,12 @@ import {
   parseQuizResponse,
   parseRecommendationResponse,
 } from "../../utils/aiParser.js";
+import { createTtlCache } from "../../utils/ttlCache.js";
+
+// اختبار الكورس والتوصيات لا يُخزَّنان في القاعدة (بخلاف ملخص/اختبار الدرس)،
+// فنخزّنهما مؤقتاً حتى لا يتحوّل كل ضغط على الزر إلى استدعاء Gemini جديد.
+const courseQuizCache = createTtlCache({ ttlMs: 6 * 60 * 60 * 1000 });     // 6 ساعات
+const recommendationsCache = createTtlCache({ ttlMs: 24 * 60 * 60 * 1000 }); // 24 ساعة
 
 // ─────────────────────────────────────────────
 // CHAT ASSISTANT
@@ -309,6 +315,10 @@ export const generateCourseQuiz = async ({
     throw new AppError("يجب أن تكون مسجّلاً في هذا الكورس.", 403);
   }
 
+  const cacheKey = `${courseId}:${questionCount}`;
+  const cached = courseQuizCache.get(cacheKey);
+  if (cached) return { ...cached, cached: true };
+
   // 2. Fetch all lesson summaries for this course
   const summaries = await prisma.lessonSummary.findMany({
     where: { lesson: { courseId: courseId } },
@@ -338,7 +348,7 @@ export const generateCourseQuiz = async ({
   const rawText = await callGemini(prompt, { json: true });
   const parsedQuestions = parseQuizResponse(rawText);
 
-  return {
+  const result = {
     questions: parsedQuestions.map((q, i) => ({
       id: i + 1,
       question: q.question,
@@ -346,6 +356,8 @@ export const generateCourseQuiz = async ({
       correctAnswer: q.correctAnswer,
     })),
   };
+  courseQuizCache.set(cacheKey, result);
+  return { ...result, cached: false };
 };
 
 // ─────────────────────────────────────────────
@@ -370,6 +382,12 @@ export const getRecommendations = async ({ userId }) => {
   }
 
   const enrolledCourseIds = enrollments.map((e) => e.course.id);
+
+  // المفتاح يشمل مجموعة الكورسات المسجّل بها: تسجيل جديد = توصيات جديدة تلقائياً
+  const cacheKey = `${userId}:${[...enrolledCourseIds].sort().join(",")}`;
+  const cached = recommendationsCache.get(cacheKey);
+  if (cached) return { ...cached, cached: true };
+
   const enrolledCategoryIds = [
     ...new Set(enrollments.map((e) => e.course.categoryId)),
   ];
@@ -422,7 +440,7 @@ export const getRecommendations = async ({ userId }) => {
   const rawText = await callGemini(prompt, { json: true });
   const aiData = parseRecommendationResponse(rawText);
 
-  return {
+  const result = {
     recommendations: candidateCourses.map((course) => ({
       id: course.id,
       title: course.title,
@@ -434,4 +452,6 @@ export const getRecommendations = async ({ userId }) => {
     })),
     overallMessage: aiData.overallMessage,
   };
+  recommendationsCache.set(cacheKey, result);
+  return { ...result, cached: false };
 };
