@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
-import "../../css/AvatarDropdown.css";
+import "../../css/Avatardropdown.css";
 
 export default function AvatarDropdown({ user, onLogout, onOpenMyCourses }) {
   const [open, setOpen] = useState(false);

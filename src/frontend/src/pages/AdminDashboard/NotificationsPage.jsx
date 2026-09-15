@@ -6,7 +6,7 @@ import {
   markNotificationAsRead,
   deleteNotification,
 } from "../../api/notifications";
-import "../../css/NotificationsPage.css";
+import "../../css/Notificationspage.css";
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);

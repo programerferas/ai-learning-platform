@@ -20,7 +20,7 @@ import {
   updateCourse,
   uploadCourseImage,
 } from "../../api/courses";
-import "../../css/CoursesPage.css";
+import "../../css/Coursespage.css";
 import { getCategories } from "../../api/courses";
 
 

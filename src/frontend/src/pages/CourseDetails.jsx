@@ -6,7 +6,7 @@ import { getCourseById } from "../api/courses";
 import { useAuth } from "../hooks/useAuth";
 import { enrollCourse, checkEnrollment } from "../api/enrollments";
 import { getCourseReviews, submitReview } from "../api/reviews";
-import "../css/CourseDetails.css";
+import "../css/Coursedetails.css";
 
 const LEVEL_MAP = {
   BEGINNER: "مبتدئ",

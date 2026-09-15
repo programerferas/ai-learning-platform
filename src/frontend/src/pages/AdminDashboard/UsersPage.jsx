@@ -4,7 +4,7 @@ import { FaSearch, FaEnvelope,  FaUsers, FaTrashAlt } from "react-icons/fa";
 import {   getAllUsers, 
   updateUser, 
   deleteUser  } from "../../api/user";
-import "../../css/UsersPage.css";
+import "../../css/Userspage.css";
 
 const UsersPage = () => {
   const [users, setUsers] = useState([]);

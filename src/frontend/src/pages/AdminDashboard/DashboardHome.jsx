@@ -2,7 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { FaUsers, FaBookOpen, FaVideo, FaStar,  FaGlobe   } from "react-icons/fa";
 import { getDashboardOverview } from "../../api/dashboard";
-import "../../css/DashboardHome.css";
+import "../../css/Dashboardhome.css";
 
 const DashboardHome = () => {
   const navigate = useNavigate();

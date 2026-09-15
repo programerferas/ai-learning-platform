@@ -17,7 +17,7 @@ import {
 } from "../../api/Lesson";
 import { AiSummaryCard } from "./AiSummaryCard";
 import { getCourses } from "../../api/courses";
-import "../../css/LessonsPage.css";
+import "../../css/Lessonspage.css";
 
 const EMPTY_FORM = {
   title: "",

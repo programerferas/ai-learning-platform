@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getMyEnrollments } from "../api/enrollments";
-import "../css/MyCoursesPanel.css";
+import "../css/Mycoursespanel.css";
 import { Link } from "react-router-dom";
 
 export default function MyCoursesPanel({ isOpen, onClose }) {

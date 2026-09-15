@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { FaStar, FaTrashAlt, FaSearch, FaClock } from "react-icons/fa";
 import { getAllReviews, deleteReview } from "../../api/reviews";
-import "../../css/ReviewsPage.css";
+import "../../css/Reviewspage.css";
 
 const ReviewsPage = () => {
   const [reviews, setReviews] = useState([]);

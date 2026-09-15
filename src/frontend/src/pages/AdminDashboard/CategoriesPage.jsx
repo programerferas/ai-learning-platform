@@ -5,7 +5,7 @@ import {
   getAllCategories, createCategory,
   updateCategory, deleteCategory, uploadCategoryImage
 } from '../../api/category';
-import '../../css/CategoriesPage.css';
+import '../../css/Categoriespage.css';
 
 
 const EMPTY_FORM = { name: "", description: "" };
