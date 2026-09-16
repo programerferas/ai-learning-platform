@@ -34,10 +34,15 @@ const envSchema = z.object({
     .string()
     .url("CLIENT_URL يجب أن يكون رابطاً كاملاً")
     .default("http://localhost:5173"),
-  API_URL: z
-    .string()
-    .url("API_URL يجب أن يكون رابطاً كاملاً")
-    .default("http://localhost:5000"),
+  // يُستخدم في رابط التفعيل داخل البريد. Railway يعرّف RAILWAY_PUBLIC_DOMAIN تلقائياً،
+  // فنشتق منه الرابط العام كي لا يخرج رابط localhost في بريد الإنتاج.
+  API_URL: z.preprocess(
+    (v) =>
+      v || (process.env.RAILWAY_PUBLIC_DOMAIN
+        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+        : undefined),
+    z.string().url("API_URL يجب أن يكون رابطاً كاملاً").default("http://localhost:5000"),
+  ),
   // مصادر مسموحة لـ CORS، مفصولة بفواصل
   FRONTEND_URLS: z.string().default("http://localhost:5173"),
 
