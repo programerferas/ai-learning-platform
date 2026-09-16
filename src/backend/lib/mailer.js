@@ -2,12 +2,66 @@ import nodemailer from "nodemailer";
 import { env } from "../config/env.js";
 import logger from "../utils/logger.js";
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: { user: env.EMAIL_USER, pass: env.EMAIL_PASS },
-});
+const SENDER_NAME = "Luxora Learn";
+const BREVO_API = "https://api.brevo.com/v3";
+const BREVO_TIMEOUT_MS = 15_000;
 
-const FROM = `"Luxora Learn" <${env.EMAIL_USER}>`;
+/* ------------------------------- قناة الإرسال ------------------------------- */
+// Railway (وأمثالها) تحجب منافذ SMTP على الخطط غير المدفوعة، فيبقى الطلب معلّقاً
+// حتى يفشل. Brevo يرسل عبر HTTPS العادي فلا يتأثر، وGmail SMTP يبقى للتطوير المحلي.
+const USE_BREVO = Boolean(env.BREVO_API_KEY);
+
+const transporter = USE_BREVO
+  ? null
+  : nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: env.EMAIL_USER, pass: env.EMAIL_PASS },
+    });
+
+const brevoRequest = async (path, init = {}) => {
+  const res = await fetch(`${BREVO_API}${path}`, {
+    ...init,
+    headers: {
+      "api-key": env.BREVO_API_KEY,
+      accept: "application/json",
+      ...(init.body ? { "content-type": "application/json" } : {}),
+      ...init.headers,
+    },
+    signal: AbortSignal.timeout(BREVO_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    // نص الخطأ من Brevo يشرح السبب (مرسل غير موثّق، مفتاح خاطئ، ...)
+    const body = await res.text().catch(() => "");
+    const err = new Error(`Brevo ${res.status}: ${body.slice(0, 300)}`);
+    err.code = `BREVO_${res.status}`;
+    throw err;
+  }
+  return res;
+};
+
+/** يرسل رسالة عبر القناة المضبوطة؛ الواجهة موحّدة مهما كانت القناة */
+const deliver = async ({ to, subject, text, html }) => {
+  if (USE_BREVO) {
+    await brevoRequest("/smtp/email", {
+      method: "POST",
+      body: JSON.stringify({
+        sender: { name: SENDER_NAME, email: env.EMAIL_USER },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+        ...(text ? { textContent: text } : {}),
+      }),
+    });
+    return;
+  }
+  await transporter.sendMail({
+    from: `"${SENDER_NAME}" <${env.EMAIL_USER}>`,
+    to,
+    subject,
+    text,
+    html,
+  });
+};
 
 /** يمنع حقن HTML عبر الاسم القادم من المستخدم */
 const escapeHtml = (value = "") =>
@@ -37,8 +91,7 @@ export const sendVerificationEmail = async (to, name, rawVerifyToken) => {
   )}`;
   const safeName = escapeHtml(name);
 
-  await transporter.sendMail({
-    from: FROM,
+  await deliver({
     to,
     subject: "تفعيل حسابك في Luxora Learn",
     // نسخة نصية إلى جانب HTML: تقلّل احتمال الوصول لمجلد الرسائل المزعجة
@@ -70,8 +123,7 @@ export const sendResetPasswordEmail = async (to, name, rawResetToken) => {
     rawResetToken
   )}`;
 
-  await transporter.sendMail({
-    from: FROM,
+  await deliver({
     to,
     subject: "إعادة تعيين كلمة المرور - Luxora Learn",
     text: `مرحباً ${name}،\nلإعادة تعيين كلمة المرور افتح الرابط خلال 15 دقيقة:\n${resetUrl}\n\nإذا لم تطلب ذلك، تجاهل هذه الرسالة.`,
@@ -96,8 +148,7 @@ export const sendResetPasswordEmail = async (to, name, rawResetToken) => {
 
 /* -------------------------------- ترحيب -------------------------------- */
 export const sendWelcomeEmail = async (to, name) => {
-  await transporter.sendMail({
-    from: FROM,
+  await deliver({
     to,
     subject: "أهلاً بك في Luxora Learn",
     html: layout(`
@@ -110,8 +161,7 @@ export const sendWelcomeEmail = async (to, name) => {
 /* ------------------------------- التسجيل ------------------------------- */
 export const sendEnrollmentEmail = async (to, name, courseTitle) => {
   const safeTitle = escapeHtml(courseTitle);
-  await transporter.sendMail({
-    from: FROM,
+  await deliver({
     to,
     subject: `تم تسجيلك في ${courseTitle}`,
     html: layout(`
@@ -125,9 +175,10 @@ export const sendEnrollmentEmail = async (to, name, courseTitle) => {
 /** فحص اتصال SMTP عند الإقلاع — يكشف كلمة مرور تطبيق خاطئة قبل أول مستخدم */
 export const verifyMailer = async () => {
   try {
-    await transporter.verify();
-    logger.info("mailer.ready");
+    if (USE_BREVO) await brevoRequest("/account");
+    else await transporter.verify();
+    logger.info("mailer.ready", { transport: USE_BREVO ? "brevo" : "gmail-smtp" });
   } catch (err) {
-    logger.error("mailer.unavailable", { err });
+    logger.error("mailer.unavailable", { transport: USE_BREVO ? "brevo" : "gmail-smtp", err });
   }
 };

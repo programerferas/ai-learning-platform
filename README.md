@@ -582,8 +582,9 @@ CLIENT_URL=http://localhost:5173
 API_URL=http://localhost:5000
 FRONTEND_URLS=http://localhost:5173
 
-EMAIL_USER=
-EMAIL_PASS=
+EMAIL_USER=                 # sender address (always)
+EMAIL_PASS=                 # Gmail App Password – local dev (SMTP)
+BREVO_API_KEY=              # production – Railway blocks SMTP on non-Pro plans, Brevo sends over HTTPS
 
 SUPABASE_S3_ENDPOINT=
 SUPABASE_S3_REGION=

@@ -41,8 +41,12 @@ const envSchema = z.object({
   // مصادر مسموحة لـ CORS، مفصولة بفواصل
   FRONTEND_URLS: z.string().default("http://localhost:5173"),
 
-  EMAIL_USER: z.string().min(1, "EMAIL_USER مطلوب لإرسال رسائل التفعيل"),
-  EMAIL_PASS: z.string().min(1, "EMAIL_PASS مطلوب لإرسال رسائل التفعيل"),
+  // عنوان المرسل في كل الأحوال، وحساب Gmail عند الإرسال عبر SMTP
+  EMAIL_USER: z.string().email("EMAIL_USER يجب أن يكون بريداً صالحاً"),
+  // Gmail SMTP: للتطوير المحلي. منصات مثل Railway تحجب منافذ SMTP على الخطط
+  // غير المدفوعة، لذلك في الإنتاج يُستخدم Brevo عبر HTTPS بدلاً منه.
+  EMAIL_PASS: optionalEnv("EMAIL_PASS غير صالح"),
+  BREVO_API_KEY: optionalEnv("BREVO_API_KEY غير صالح"),
 
   COOKIE_NAME: z.string().default("token"),
   COOKIE_DOMAIN: z.string().optional(),
@@ -73,7 +77,12 @@ const envSchema = z.object({
   ),
 });
 
-const parsed = envSchema.safeParse(process.env);
+const parsed = envSchema
+  .refine((e) => e.BREVO_API_KEY || e.EMAIL_PASS, {
+    path: ["EMAIL_PASS"],
+    message: "مطلوب BREVO_API_KEY (إنتاج) أو EMAIL_PASS (Gmail SMTP محلياً) لإرسال رسائل التفعيل",
+  })
+  .safeParse(process.env);
 
 if (!parsed.success) {
   console.error("❌ إعدادات البيئة غير صالحة، تم إيقاف التشغيل:");
