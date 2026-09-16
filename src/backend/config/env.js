@@ -44,9 +44,10 @@ const envSchema = z.object({
   // عنوان المرسل في كل الأحوال، وحساب Gmail عند الإرسال عبر SMTP
   EMAIL_USER: z.string().email("EMAIL_USER يجب أن يكون بريداً صالحاً"),
   // Gmail SMTP: للتطوير المحلي. منصات مثل Railway تحجب منافذ SMTP على الخطط
-  // غير المدفوعة، لذلك في الإنتاج يُستخدم Brevo عبر HTTPS بدلاً منه.
+  // غير المدفوعة، لذلك في الإنتاج يُستخدم Mailjet عبر HTTPS بدلاً منه.
   EMAIL_PASS: optionalEnv("EMAIL_PASS غير صالح"),
-  BREVO_API_KEY: optionalEnv("BREVO_API_KEY غير صالح"),
+  MAILJET_API_KEY: optionalEnv("MAILJET_API_KEY غير صالح"),
+  MAILJET_SECRET_KEY: optionalEnv("MAILJET_SECRET_KEY غير صالح"),
 
   COOKIE_NAME: z.string().default("token"),
   COOKIE_DOMAIN: z.string().optional(),
@@ -78,9 +79,10 @@ const envSchema = z.object({
 });
 
 const parsed = envSchema
-  .refine((e) => e.BREVO_API_KEY || e.EMAIL_PASS, {
+  .refine((e) => (e.MAILJET_API_KEY && e.MAILJET_SECRET_KEY) || e.EMAIL_PASS, {
     path: ["EMAIL_PASS"],
-    message: "مطلوب BREVO_API_KEY (إنتاج) أو EMAIL_PASS (Gmail SMTP محلياً) لإرسال رسائل التفعيل",
+    message:
+      "مطلوب MAILJET_API_KEY + MAILJET_SECRET_KEY (إنتاج) أو EMAIL_PASS (Gmail SMTP محلياً) لإرسال رسائل التفعيل",
   })
   .safeParse(process.env);
 

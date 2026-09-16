@@ -3,37 +3,40 @@ import { env } from "../config/env.js";
 import logger from "../utils/logger.js";
 
 const SENDER_NAME = "Luxora Learn";
-const BREVO_API = "https://api.brevo.com/v3";
-const BREVO_TIMEOUT_MS = 15_000;
+const MAILJET_API = "https://api.mailjet.com";
+const MAILJET_TIMEOUT_MS = 15_000;
 
 /* ------------------------------- قناة الإرسال ------------------------------- */
 // Railway (وأمثالها) تحجب منافذ SMTP على الخطط غير المدفوعة، فيبقى الطلب معلّقاً
-// حتى يفشل. Brevo يرسل عبر HTTPS العادي فلا يتأثر، وGmail SMTP يبقى للتطوير المحلي.
-const USE_BREVO = Boolean(env.BREVO_API_KEY);
+// حتى يفشل. Mailjet يرسل عبر HTTPS العادي فلا يتأثر، وGmail SMTP يبقى للتطوير المحلي.
+const USE_MAILJET = Boolean(env.MAILJET_API_KEY && env.MAILJET_SECRET_KEY);
 
-const transporter = USE_BREVO
+const transporter = USE_MAILJET
   ? null
   : nodemailer.createTransport({
       service: "gmail",
       auth: { user: env.EMAIL_USER, pass: env.EMAIL_PASS },
     });
 
-const brevoRequest = async (path, init = {}) => {
-  const res = await fetch(`${BREVO_API}${path}`, {
+const mailjetRequest = async (path, init = {}) => {
+  const credentials = Buffer.from(
+    `${env.MAILJET_API_KEY}:${env.MAILJET_SECRET_KEY}`
+  ).toString("base64");
+  const res = await fetch(`${MAILJET_API}${path}`, {
     ...init,
     headers: {
-      "api-key": env.BREVO_API_KEY,
+      authorization: `Basic ${credentials}`,
       accept: "application/json",
       ...(init.body ? { "content-type": "application/json" } : {}),
       ...init.headers,
     },
-    signal: AbortSignal.timeout(BREVO_TIMEOUT_MS),
+    signal: AbortSignal.timeout(MAILJET_TIMEOUT_MS),
   });
   if (!res.ok) {
-    // نص الخطأ من Brevo يشرح السبب (مرسل غير موثّق، مفتاح خاطئ، ...)
+    // نص الخطأ من Mailjet يشرح السبب (مرسل غير موثّق، مفتاح خاطئ، ...)
     const body = await res.text().catch(() => "");
-    const err = new Error(`Brevo ${res.status}: ${body.slice(0, 300)}`);
-    err.code = `BREVO_${res.status}`;
+    const err = new Error(`Mailjet ${res.status}: ${body.slice(0, 300)}`);
+    err.code = `MAILJET_${res.status}`;
     throw err;
   }
   return res;
@@ -41,17 +44,31 @@ const brevoRequest = async (path, init = {}) => {
 
 /** يرسل رسالة عبر القناة المضبوطة؛ الواجهة موحّدة مهما كانت القناة */
 const deliver = async ({ to, subject, text, html }) => {
-  if (USE_BREVO) {
-    await brevoRequest("/smtp/email", {
+  if (USE_MAILJET) {
+    const res = await mailjetRequest("/v3.1/send", {
       method: "POST",
       body: JSON.stringify({
-        sender: { name: SENDER_NAME, email: env.EMAIL_USER },
-        to: [{ email: to }],
-        subject,
-        htmlContent: html,
-        ...(text ? { textContent: text } : {}),
+        Messages: [
+          {
+            From: { Email: env.EMAIL_USER, Name: SENDER_NAME },
+            To: [{ Email: to }],
+            Subject: subject,
+            HTMLPart: html,
+            ...(text ? { TextPart: text } : {}),
+          },
+        ],
       }),
     });
+    // v3.1 يردّ 200 حتى لو رُفضت رسالة بعينها، فالحالة داخل الجسم هي الحكم
+    const { Messages = [] } = await res.json().catch(() => ({}));
+    const failed = Messages.find((m) => m.Status !== "success");
+    if (failed) {
+      const reason =
+        failed.Errors?.map((e) => e.ErrorMessage).join("; ") || failed.Status;
+      const err = new Error(`Mailjet rejected message: ${reason}`);
+      err.code = "MAILJET_REJECTED";
+      throw err;
+    }
     return;
   }
   await transporter.sendMail({
@@ -175,10 +192,10 @@ export const sendEnrollmentEmail = async (to, name, courseTitle) => {
 /** فحص اتصال SMTP عند الإقلاع — يكشف كلمة مرور تطبيق خاطئة قبل أول مستخدم */
 export const verifyMailer = async () => {
   try {
-    if (USE_BREVO) await brevoRequest("/account");
+    if (USE_MAILJET) await mailjetRequest("/v3/REST/apikey");
     else await transporter.verify();
-    logger.info("mailer.ready", { transport: USE_BREVO ? "brevo" : "gmail-smtp" });
+    logger.info("mailer.ready", { transport: USE_MAILJET ? "mailjet" : "gmail-smtp" });
   } catch (err) {
-    logger.error("mailer.unavailable", { transport: USE_BREVO ? "brevo" : "gmail-smtp", err });
+    logger.error("mailer.unavailable", { transport: USE_MAILJET ? "mailjet" : "gmail-smtp", err });
   }
 };

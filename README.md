@@ -584,7 +584,8 @@ FRONTEND_URLS=http://localhost:5173
 
 EMAIL_USER=                 # sender address (always)
 EMAIL_PASS=                 # Gmail App Password – local dev (SMTP)
-BREVO_API_KEY=              # production – Railway blocks SMTP on non-Pro plans, Brevo sends over HTTPS
+MAILJET_API_KEY=            # production – Railway blocks SMTP on non-Pro plans, Mailjet sends over HTTPS
+MAILJET_SECRET_KEY=         # production – Mailjet secret key (pairs with MAILJET_API_KEY)
 
 SUPABASE_S3_ENDPOINT=
 SUPABASE_S3_REGION=
