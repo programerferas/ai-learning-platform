@@ -44,11 +44,18 @@ const envSchema = z.object({
   // عنوان المرسل في كل الأحوال، وحساب Gmail عند الإرسال عبر SMTP
   EMAIL_USER: z.string().email("EMAIL_USER يجب أن يكون بريداً صالحاً"),
   // Gmail SMTP: للتطوير المحلي. منصات مثل Railway تحجب منافذ SMTP على الخطط
-  // غير المدفوعة، لذلك في الإنتاج يُستخدم Gmail API عبر HTTPS (OAuth2) بدلاً منه.
+  // غير المدفوعة، لذلك في الإنتاج يُرسَل عبر HTTPS إلى Google Apps Script
+  // (scripts/gmail-webhook.gs) الذي يرسل من نفس حساب Gmail.
   EMAIL_PASS: optionalEnv("EMAIL_PASS غير صالح"),
-  GMAIL_CLIENT_ID: optionalEnv("GMAIL_CLIENT_ID غير صالح"),
-  GMAIL_CLIENT_SECRET: optionalEnv("GMAIL_CLIENT_SECRET غير صالح"),
-  GMAIL_REFRESH_TOKEN: optionalEnv("GMAIL_REFRESH_TOKEN غير صالح"),
+  // رابط النشر (/exec) تحديداً لا رابط المحرر ولا /dev؛ loopback مسموح للاختبارات المحلية
+  MAIL_WEBHOOK_URL: optionalEnv("MAIL_WEBHOOK_URL غير صالح").refine(
+    (v) =>
+      v === undefined ||
+      /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(v) ||
+      /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//.test(v),
+    "MAIL_WEBHOOK_URL يجب أن يكون رابط نشر Apps Script: https://script.google.com/macros/s/.../exec",
+  ),
+  MAIL_WEBHOOK_SECRET: optionalEnv("MAIL_WEBHOOK_SECRET غير صالح"),
 
   COOKIE_NAME: z.string().default("token"),
   COOKIE_DOMAIN: z.string().optional(),
@@ -82,13 +89,11 @@ const envSchema = z.object({
 
 const parsed = envSchema
   .refine(
-    (e) =>
-      (e.GMAIL_CLIENT_ID && e.GMAIL_CLIENT_SECRET && e.GMAIL_REFRESH_TOKEN) ||
-      e.EMAIL_PASS,
+    (e) => (e.MAIL_WEBHOOK_URL && e.MAIL_WEBHOOK_SECRET) || e.EMAIL_PASS,
     {
       path: ["EMAIL_PASS"],
       message:
-        "مطلوب GMAIL_CLIENT_ID + GMAIL_CLIENT_SECRET + GMAIL_REFRESH_TOKEN (إنتاج، شغّل npm run gmail:token) أو EMAIL_PASS (Gmail SMTP محلياً)",
+        "مطلوب MAIL_WEBHOOK_URL + MAIL_WEBHOOK_SECRET (إنتاج، انظر scripts/gmail-webhook.gs) أو EMAIL_PASS (Gmail SMTP محلياً)",
     }
   )
   .safeParse(process.env);

@@ -1,104 +1,74 @@
 import nodemailer from "nodemailer";
-import MailComposer from "nodemailer/lib/mail-composer/index.js";
 import { env } from "../config/env.js";
 import logger from "../utils/logger.js";
 
 const SENDER_NAME = "Luxora Learn";
-const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
-const GMAIL_TIMEOUT_MS = 15_000;
-// نجدّد قبل انتهاء الصلاحية الفعلي بهامش حتى لا يُرفض طلب إرسال على الحافة
-const TOKEN_REFRESH_MARGIN_MS = 60_000;
+// Apps Script قد يستغرق بضع ثوانٍ في الاستيقاذ البارد
+const WEBHOOK_TIMEOUT_MS = 25_000;
 
 /* ------------------------------- قناة الإرسال ------------------------------- */
 // Railway (وأمثالها) تحجب منافذ SMTP على الخطط غير المدفوعة، فيبقى الطلب معلّقاً
-// حتى يفشل. Gmail API يرسل من نفس الحساب عبر HTTPS العادي فلا يتأثر،
-// وGmail SMTP يبقى للتطوير المحلي.
-const USE_GMAIL_API = Boolean(
-  env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN
-);
+// حتى يفشل. في الإنتاج نرسل عبر HTTPS إلى Google Apps Script منشور كـ Web App
+// (scripts/gmail-webhook.gs) يرسل من نفس حساب Gmail. Gmail SMTP يبقى للتطوير المحلي.
+const USE_WEBHOOK = Boolean(env.MAIL_WEBHOOK_URL && env.MAIL_WEBHOOK_SECRET);
 
-const transporter = USE_GMAIL_API
+const transporter = USE_WEBHOOK
   ? null
   : nodemailer.createTransport({
       service: "gmail",
       auth: { user: env.EMAIL_USER, pass: env.EMAIL_PASS },
     });
 
-const httpError = async (label, res) => {
-  // نص الخطأ من Google يشرح السبب (توكن ملغى، نطاق ناقص، حصة، ...)
-  const body = await res.text().catch(() => "");
-  const err = new Error(`${label} ${res.status}: ${body.slice(0, 300)}`);
-  err.code = `GMAIL_${res.status}`;
-  return err;
-};
-
-// توكن الوصول قصير العمر (ساعة) ويُشتق من refresh token الدائم؛ نخزّنه في الذاكرة
-let accessToken = null;
-let accessTokenExpiresAt = 0;
-
-const getAccessToken = async () => {
-  if (accessToken && Date.now() < accessTokenExpiresAt - TOKEN_REFRESH_MARGIN_MS)
-    return accessToken;
-
-  const res = await fetch(GOOGLE_TOKEN_URL, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: env.GMAIL_CLIENT_ID,
-      client_secret: env.GMAIL_CLIENT_SECRET,
-      refresh_token: env.GMAIL_REFRESH_TOKEN,
-      grant_type: "refresh_token",
-    }),
-    signal: AbortSignal.timeout(GMAIL_TIMEOUT_MS),
-  });
-  if (!res.ok) throw await httpError("Google token", res);
-
-  const data = await res.json();
-  accessToken = data.access_token;
-  accessTokenExpiresAt = Date.now() + data.expires_in * 1000;
-  return accessToken;
-};
-
-const gmailRequest = async (path, init = {}) => {
-  const token = await getAccessToken();
-  const res = await fetch(`${GMAIL_API}${path}`, {
+// Apps Script يردّ بإعادة توجيه 302 إلى رابط المحتوى؛ fetch يتبعه تلقائياً.
+// الحالة الحقيقية داخل JSON (ok) لأن Apps Script يعيد 200 حتى عند الفشل.
+const webhookRequest = async (init = {}) => {
+  const res = await fetch(env.MAIL_WEBHOOK_URL, {
     ...init,
-    headers: {
-      authorization: `Bearer ${token}`,
-      accept: "application/json",
-      ...(init.body ? { "content-type": "application/json" } : {}),
-      ...init.headers,
-    },
-    signal: AbortSignal.timeout(GMAIL_TIMEOUT_MS),
+    headers: { accept: "application/json", ...init.headers },
+    redirect: "follow",
+    signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
   });
-  if (!res.ok) throw await httpError("Gmail", res);
-  return res;
-};
-
-// Gmail API يستقبل الرسالة كاملة بصيغة MIME؛ MailComposer (جزء من nodemailer) يبنيها
-const buildRawMessage = async (message) => {
-  const buffer = await new MailComposer(message).compile().build();
-  return buffer.toString("base64url");
+  const text = await res.text().catch(() => "");
+  let data = null;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    // صفحة HTML بدل JSON = النشر غير مضبوط (الوصول ليس "Anyone") أو الرابط خاطئ
+  }
+  if (!res.ok || !data || data.ok !== true) {
+    const reason = data?.error || `HTTP ${res.status}: ${text.slice(0, 200)}`;
+    const err = new Error(`Mail webhook: ${reason}`);
+    err.code = data ? "MAIL_WEBHOOK_REJECTED" : `MAIL_WEBHOOK_${res.status}`;
+    throw err;
+  }
+  return data;
 };
 
 /** يرسل رسالة عبر القناة المضبوطة؛ الواجهة موحّدة مهما كانت القناة */
 const deliver = async ({ to, subject, text, html }) => {
-  const message = {
+  if (USE_WEBHOOK) {
+    await webhookRequest({
+      method: "POST",
+      // text/plain لا application/json: يتجنّب طلب CORS التمهيدي الذي لا يدعمه Apps Script
+      headers: { "content-type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        secret: env.MAIL_WEBHOOK_SECRET,
+        senderName: SENDER_NAME,
+        to,
+        subject,
+        text,
+        html,
+      }),
+    });
+    return;
+  }
+  await transporter.sendMail({
     from: `"${SENDER_NAME}" <${env.EMAIL_USER}>`,
     to,
     subject,
     text,
     html,
-  };
-  if (USE_GMAIL_API) {
-    await gmailRequest("/messages/send", {
-      method: "POST",
-      body: JSON.stringify({ raw: await buildRawMessage(message) }),
-    });
-    return;
-  }
-  await transporter.sendMail(message);
+  });
 };
 
 /** يمنع حقن HTML عبر الاسم القادم من المستخدم */
@@ -213,13 +183,18 @@ export const sendEnrollmentEmail = async (to, name, courseTitle) => {
 /** فحص اتصال SMTP عند الإقلاع — يكشف كلمة مرور تطبيق خاطئة قبل أول مستخدم */
 export const verifyMailer = async () => {
   try {
-    const transport = USE_GMAIL_API ? "gmail-api" : "gmail-smtp";
-    if (USE_GMAIL_API) await gmailRequest("/profile");
-    else await transporter.verify();
-    logger.info("mailer.ready", { transport });
+    const transport = USE_WEBHOOK ? "apps-script-webhook" : "gmail-smtp";
+    // GET على السكربت يعيد {ok:true, sender} دون إرسال شيء — فحص صحة فقط
+    if (USE_WEBHOOK) {
+      const { sender, remainingToday } = await webhookRequest({ method: "GET" });
+      logger.info("mailer.ready", { transport, sender, remainingToday });
+    } else {
+      await transporter.verify();
+      logger.info("mailer.ready", { transport });
+    }
   } catch (err) {
     logger.error("mailer.unavailable", {
-      transport: USE_GMAIL_API ? "gmail-api" : "gmail-smtp",
+      transport: USE_WEBHOOK ? "apps-script-webhook" : "gmail-smtp",
       err,
     });
   }

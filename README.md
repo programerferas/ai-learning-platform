@@ -584,9 +584,8 @@ FRONTEND_URLS=http://localhost:5173
 
 EMAIL_USER=                 # sender address (always)
 EMAIL_PASS=                 # Gmail App Password – local dev (SMTP)
-GMAIL_CLIENT_ID=            # production – Railway blocks SMTP on non-Pro plans; Gmail API sends over HTTPS
-GMAIL_CLIENT_SECRET=        # production – from the same Google Cloud OAuth client (type: Desktop app)
-GMAIL_REFRESH_TOKEN=        # production – run `npm run gmail:token` locally once to obtain it
+MAIL_WEBHOOK_URL=           # production – Railway blocks SMTP on non-Pro plans; deploy scripts/gmail-webhook.gs as an Apps Script web app and paste its /exec URL
+MAIL_WEBHOOK_SECRET=        # production – the same secret you set inside gmail-webhook.gs
 
 SUPABASE_S3_ENDPOINT=
 SUPABASE_S3_REGION=
