@@ -1,83 +1,104 @@
 import nodemailer from "nodemailer";
+import MailComposer from "nodemailer/lib/mail-composer/index.js";
 import { env } from "../config/env.js";
 import logger from "../utils/logger.js";
 
 const SENDER_NAME = "Luxora Learn";
-const MAILJET_API = "https://api.mailjet.com";
-const MAILJET_TIMEOUT_MS = 15_000;
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
+const GMAIL_TIMEOUT_MS = 15_000;
+// نجدّد قبل انتهاء الصلاحية الفعلي بهامش حتى لا يُرفض طلب إرسال على الحافة
+const TOKEN_REFRESH_MARGIN_MS = 60_000;
 
 /* ------------------------------- قناة الإرسال ------------------------------- */
 // Railway (وأمثالها) تحجب منافذ SMTP على الخطط غير المدفوعة، فيبقى الطلب معلّقاً
-// حتى يفشل. Mailjet يرسل عبر HTTPS العادي فلا يتأثر، وGmail SMTP يبقى للتطوير المحلي.
-const USE_MAILJET = Boolean(env.MAILJET_API_KEY && env.MAILJET_SECRET_KEY);
+// حتى يفشل. Gmail API يرسل من نفس الحساب عبر HTTPS العادي فلا يتأثر،
+// وGmail SMTP يبقى للتطوير المحلي.
+const USE_GMAIL_API = Boolean(
+  env.GMAIL_CLIENT_ID && env.GMAIL_CLIENT_SECRET && env.GMAIL_REFRESH_TOKEN
+);
 
-const transporter = USE_MAILJET
+const transporter = USE_GMAIL_API
   ? null
   : nodemailer.createTransport({
       service: "gmail",
       auth: { user: env.EMAIL_USER, pass: env.EMAIL_PASS },
     });
 
-const mailjetRequest = async (path, init = {}) => {
-  const credentials = Buffer.from(
-    `${env.MAILJET_API_KEY}:${env.MAILJET_SECRET_KEY}`
-  ).toString("base64");
-  const res = await fetch(`${MAILJET_API}${path}`, {
+const httpError = async (label, res) => {
+  // نص الخطأ من Google يشرح السبب (توكن ملغى، نطاق ناقص، حصة، ...)
+  const body = await res.text().catch(() => "");
+  const err = new Error(`${label} ${res.status}: ${body.slice(0, 300)}`);
+  err.code = `GMAIL_${res.status}`;
+  return err;
+};
+
+// توكن الوصول قصير العمر (ساعة) ويُشتق من refresh token الدائم؛ نخزّنه في الذاكرة
+let accessToken = null;
+let accessTokenExpiresAt = 0;
+
+const getAccessToken = async () => {
+  if (accessToken && Date.now() < accessTokenExpiresAt - TOKEN_REFRESH_MARGIN_MS)
+    return accessToken;
+
+  const res = await fetch(GOOGLE_TOKEN_URL, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: env.GMAIL_CLIENT_ID,
+      client_secret: env.GMAIL_CLIENT_SECRET,
+      refresh_token: env.GMAIL_REFRESH_TOKEN,
+      grant_type: "refresh_token",
+    }),
+    signal: AbortSignal.timeout(GMAIL_TIMEOUT_MS),
+  });
+  if (!res.ok) throw await httpError("Google token", res);
+
+  const data = await res.json();
+  accessToken = data.access_token;
+  accessTokenExpiresAt = Date.now() + data.expires_in * 1000;
+  return accessToken;
+};
+
+const gmailRequest = async (path, init = {}) => {
+  const token = await getAccessToken();
+  const res = await fetch(`${GMAIL_API}${path}`, {
     ...init,
     headers: {
-      authorization: `Basic ${credentials}`,
+      authorization: `Bearer ${token}`,
       accept: "application/json",
       ...(init.body ? { "content-type": "application/json" } : {}),
       ...init.headers,
     },
-    signal: AbortSignal.timeout(MAILJET_TIMEOUT_MS),
+    signal: AbortSignal.timeout(GMAIL_TIMEOUT_MS),
   });
-  if (!res.ok) {
-    // نص الخطأ من Mailjet يشرح السبب (مرسل غير موثّق، مفتاح خاطئ، ...)
-    const body = await res.text().catch(() => "");
-    const err = new Error(`Mailjet ${res.status}: ${body.slice(0, 300)}`);
-    err.code = `MAILJET_${res.status}`;
-    throw err;
-  }
+  if (!res.ok) throw await httpError("Gmail", res);
   return res;
+};
+
+// Gmail API يستقبل الرسالة كاملة بصيغة MIME؛ MailComposer (جزء من nodemailer) يبنيها
+const buildRawMessage = async (message) => {
+  const buffer = await new MailComposer(message).compile().build();
+  return buffer.toString("base64url");
 };
 
 /** يرسل رسالة عبر القناة المضبوطة؛ الواجهة موحّدة مهما كانت القناة */
 const deliver = async ({ to, subject, text, html }) => {
-  if (USE_MAILJET) {
-    const res = await mailjetRequest("/v3.1/send", {
-      method: "POST",
-      body: JSON.stringify({
-        Messages: [
-          {
-            From: { Email: env.EMAIL_USER, Name: SENDER_NAME },
-            To: [{ Email: to }],
-            Subject: subject,
-            HTMLPart: html,
-            ...(text ? { TextPart: text } : {}),
-          },
-        ],
-      }),
-    });
-    // v3.1 يردّ 200 حتى لو رُفضت رسالة بعينها، فالحالة داخل الجسم هي الحكم
-    const { Messages = [] } = await res.json().catch(() => ({}));
-    const failed = Messages.find((m) => m.Status !== "success");
-    if (failed) {
-      const reason =
-        failed.Errors?.map((e) => e.ErrorMessage).join("; ") || failed.Status;
-      const err = new Error(`Mailjet rejected message: ${reason}`);
-      err.code = "MAILJET_REJECTED";
-      throw err;
-    }
-    return;
-  }
-  await transporter.sendMail({
+  const message = {
     from: `"${SENDER_NAME}" <${env.EMAIL_USER}>`,
     to,
     subject,
     text,
     html,
-  });
+  };
+  if (USE_GMAIL_API) {
+    await gmailRequest("/messages/send", {
+      method: "POST",
+      body: JSON.stringify({ raw: await buildRawMessage(message) }),
+    });
+    return;
+  }
+  await transporter.sendMail(message);
 };
 
 /** يمنع حقن HTML عبر الاسم القادم من المستخدم */
@@ -192,10 +213,14 @@ export const sendEnrollmentEmail = async (to, name, courseTitle) => {
 /** فحص اتصال SMTP عند الإقلاع — يكشف كلمة مرور تطبيق خاطئة قبل أول مستخدم */
 export const verifyMailer = async () => {
   try {
-    if (USE_MAILJET) await mailjetRequest("/v3/REST/apikey");
+    const transport = USE_GMAIL_API ? "gmail-api" : "gmail-smtp";
+    if (USE_GMAIL_API) await gmailRequest("/profile");
     else await transporter.verify();
-    logger.info("mailer.ready", { transport: USE_MAILJET ? "mailjet" : "gmail-smtp" });
+    logger.info("mailer.ready", { transport });
   } catch (err) {
-    logger.error("mailer.unavailable", { transport: USE_MAILJET ? "mailjet" : "gmail-smtp", err });
+    logger.error("mailer.unavailable", {
+      transport: USE_GMAIL_API ? "gmail-api" : "gmail-smtp",
+      err,
+    });
   }
 };

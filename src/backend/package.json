@@ -11,6 +11,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:seed": "node prisma/seed.js",
+    "gmail:token": "node scripts/gmail-token.js",
     "postinstall": "prisma generate"
   },
   "prisma": {

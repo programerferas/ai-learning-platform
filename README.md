@@ -584,8 +584,9 @@ FRONTEND_URLS=http://localhost:5173
 
 EMAIL_USER=                 # sender address (always)
 EMAIL_PASS=                 # Gmail App Password – local dev (SMTP)
-MAILJET_API_KEY=            # production – Railway blocks SMTP on non-Pro plans, Mailjet sends over HTTPS
-MAILJET_SECRET_KEY=         # production – Mailjet secret key (pairs with MAILJET_API_KEY)
+GMAIL_CLIENT_ID=            # production – Railway blocks SMTP on non-Pro plans; Gmail API sends over HTTPS
+GMAIL_CLIENT_SECRET=        # production – from the same Google Cloud OAuth client (type: Desktop app)
+GMAIL_REFRESH_TOKEN=        # production – run `npm run gmail:token` locally once to obtain it
 
 SUPABASE_S3_ENDPOINT=
 SUPABASE_S3_REGION=

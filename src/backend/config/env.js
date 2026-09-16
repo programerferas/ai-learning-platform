@@ -44,10 +44,11 @@ const envSchema = z.object({
   // عنوان المرسل في كل الأحوال، وحساب Gmail عند الإرسال عبر SMTP
   EMAIL_USER: z.string().email("EMAIL_USER يجب أن يكون بريداً صالحاً"),
   // Gmail SMTP: للتطوير المحلي. منصات مثل Railway تحجب منافذ SMTP على الخطط
-  // غير المدفوعة، لذلك في الإنتاج يُستخدم Mailjet عبر HTTPS بدلاً منه.
+  // غير المدفوعة، لذلك في الإنتاج يُستخدم Gmail API عبر HTTPS (OAuth2) بدلاً منه.
   EMAIL_PASS: optionalEnv("EMAIL_PASS غير صالح"),
-  MAILJET_API_KEY: optionalEnv("MAILJET_API_KEY غير صالح"),
-  MAILJET_SECRET_KEY: optionalEnv("MAILJET_SECRET_KEY غير صالح"),
+  GMAIL_CLIENT_ID: optionalEnv("GMAIL_CLIENT_ID غير صالح"),
+  GMAIL_CLIENT_SECRET: optionalEnv("GMAIL_CLIENT_SECRET غير صالح"),
+  GMAIL_REFRESH_TOKEN: optionalEnv("GMAIL_REFRESH_TOKEN غير صالح"),
 
   COOKIE_NAME: z.string().default("token"),
   COOKIE_DOMAIN: z.string().optional(),
@@ -80,11 +81,16 @@ const envSchema = z.object({
 });
 
 const parsed = envSchema
-  .refine((e) => (e.MAILJET_API_KEY && e.MAILJET_SECRET_KEY) || e.EMAIL_PASS, {
-    path: ["EMAIL_PASS"],
-    message:
-      "مطلوب MAILJET_API_KEY + MAILJET_SECRET_KEY (إنتاج) أو EMAIL_PASS (Gmail SMTP محلياً) لإرسال رسائل التفعيل",
-  })
+  .refine(
+    (e) =>
+      (e.GMAIL_CLIENT_ID && e.GMAIL_CLIENT_SECRET && e.GMAIL_REFRESH_TOKEN) ||
+      e.EMAIL_PASS,
+    {
+      path: ["EMAIL_PASS"],
+      message:
+        "مطلوب GMAIL_CLIENT_ID + GMAIL_CLIENT_SECRET + GMAIL_REFRESH_TOKEN (إنتاج، شغّل npm run gmail:token) أو EMAIL_PASS (Gmail SMTP محلياً)",
+    }
+  )
   .safeParse(process.env);
 
 if (!parsed.success) {
