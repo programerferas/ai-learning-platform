@@ -51,11 +51,12 @@ const envSchema = z.object({
 
   COOKIE_NAME: z.string().default("token"),
   COOKIE_DOMAIN: z.string().optional(),
-  // true only when the frontend and the API are on different registrable domains
+  // الواجهة (Vercel) والـ API (Railway) على نطاقين مختلفين في الإنتاج، لذلك
+  // الافتراضي هناك true. اضبطه صراحةً فقط إن أردت مخالفة الافتراضي.
   CROSS_SITE_COOKIES: z
     .enum(["true", "false"])
-    .default("false")
-    .transform((v) => v === "true"),
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === "true")),
 
   // إعدادات تخزين الفيديو عبر بروتوكول S3 المتوافق في Supabase Storage.
   // اختيارية عمداً حتى لا يتوقف إقلاع الخادم قبل ضبطها،
@@ -98,3 +99,5 @@ export const env = parsed.data;
 
 export const JWT_COOKIE_MAX_AGE_MS = parseDuration(env.JWT_EXPIRES_IN);
 export const IS_PROD = env.NODE_ENV === "production";
+// غير مضبوط → يتبع البيئة: cross-site في الإنتاج، same-site محلياً
+export const CROSS_SITE_COOKIES = env.CROSS_SITE_COOKIES ?? IS_PROD;
