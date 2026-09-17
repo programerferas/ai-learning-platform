@@ -2,7 +2,10 @@
 import axios from "axios";
 import api from "./axios";
 
+// Public list: published courses only, paginated (default 10)
 export const getCourses    = (params) => api.get("/courses", { params });
+// Admin/instructor list: every course in the DB (unpublished included), no pagination
+export const getManagedCourses = () => api.get("/courses/manage");
 export const getCourseById = (id)     => api.get(`/courses/${id}`);
 export const getCategories = ()       => api.get("/categories");
 

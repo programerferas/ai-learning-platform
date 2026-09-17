@@ -16,7 +16,7 @@ import {
   uploadLessonVideo,
 } from "../../api/Lesson";
 import { AiSummaryCard } from "./AiSummaryCard";
-import { getCourses } from "../../api/courses";
+import { getManagedCourses } from "../../api/courses";
 import "../../css/Lessonspage.css";
 
 const EMPTY_FORM = {
@@ -52,7 +52,7 @@ const LessonsPage = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   useEffect(() => {
-    Promise.all([getAllLessons(), getCourses()])
+    Promise.all([getAllLessons(), getManagedCourses()])
       .then(([lessonsData, coursesRes]) => {
         // getAllLessons() already resolves to .data (array, per your earlier log)
         setLessons(
@@ -61,7 +61,7 @@ const LessonsPage = () => {
             : (lessonsData?.lessons ?? []),
         );
 
-        // getCourses() is the raw axios response, so unwrap .data here
+        // getManagedCourses() is the raw axios response, so unwrap .data here
         setCourses(coursesRes.data?.courses ?? []);
       })
       .catch(() => setError("فشل تحميل البيانات."))

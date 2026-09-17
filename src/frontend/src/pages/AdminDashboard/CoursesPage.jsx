@@ -13,7 +13,7 @@ import {
   FaImage,
 } from "react-icons/fa";
 import {
-  getCourses,
+  getManagedCourses,
   togglePublish,
   createCourse,
   deleteCourse,
@@ -58,13 +58,16 @@ const CoursesPage = () => {
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState(null);
 
+  // قائمة الإدارة (/courses/manage) لا القائمة العامة: تشمل غير المنشور وبلا ترقيم
+  const fetchCourses = () => getManagedCourses().then((res) => res.data.courses);
+
   useEffect(() => {
-    Promise.all([getCourses(), getCategories()])
-      .then(([coursesRes, catsRes]) => {
-        setCourses(coursesRes.data.courses);
+    Promise.all([fetchCourses(), getCategories()])
+      .then(([courseList, catsRes]) => {
+        setCourses(courseList);
         setCategories(catsRes.data.data ?? catsRes.data);
       })
-      .catch((err) => {
+      .catch(() => {
         setError("فشل تحميل البيانات.");
       })
       .finally(() => setLoading(false));
@@ -194,16 +197,12 @@ const CoursesPage = () => {
       }
 
       if (editCourse) {
-        const res = await updateCourse(editCourse.id, payload);
-        setCourses((prev) =>
-          prev.map((c) =>
-            c.id === editCourse.id ? (res.data.course ?? res.data) : c,
-          ),
-        );
+        await updateCourse(editCourse.id, payload);
       } else {
-        const res = await createCourse(payload);
-        setCourses((prev) => [res.data.course ?? res.data, ...prev]);
+        await createCourse(payload);
       }
+      // نعيد الجلب من الخادم بدل تعديل الحالة محلياً حتى تطابق القائمة قاعدة البيانات
+      setCourses(await fetchCourses());
       setShowModal(false);
     } catch (err) {
       // الـ backend يعيد errors: [{ field, message }] من zod — نوزّعها على الحقول

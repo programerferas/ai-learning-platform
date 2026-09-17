@@ -12,6 +12,16 @@ const router = express.Router();
 
 // PUBLIC
 router.get("/", courseController.getAllCourses);
+
+// INSTRUCTOR & ADMIN — يجب أن يسبق "/:id" وإلا يُفسَّر "manage" كمعرّف
+router.get(
+  "/manage",
+  authMiddleware,
+  allowRoles("INSTRUCTOR", "ADMIN"),
+  courseController.getManagedCourses,
+);
+
+// PUBLIC
 router.get("/:id", courseController.getCourseById);
 
 // INSTRUCTOR & ADMIN
@@ -67,6 +77,21 @@ router.get(
  *     responses:
  *       200:
  *         description: List of courses
+ */
+
+/**
+ * @swagger
+ * /courses/manage:
+ *   get:
+ *     summary: List every course (admin) or own courses (instructor), including unpublished
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: All courses, newest first, no pagination
+ *       403:
+ *         description: Not an instructor or admin
  */
 
 /**

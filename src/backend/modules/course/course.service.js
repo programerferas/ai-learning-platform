@@ -55,9 +55,28 @@ export const createCourse = async (data, user) => {
       instructorId: user.id,
       slug: uniqueSlug,
     },
+    // نفس شكل صفوف القائمة حتى تعرض الواجهة التصنيف والمدرّس فوراً
+    include: { category: true, instructor: PUBLIC_INSTRUCTOR_SELECT },
   });
 
   return await withViewableThumbnail(course);
+};
+
+/**
+ * قائمة الإدارة: كل الكورسات بغضّ النظر عن حالة النشر وبلا ترقيم صفحات.
+ * الأدمن يرى الجميع، والمدرّس يرى كورساته فقط.
+ * GET /courses العام يُعيد المنشور فقط، لذلك لوحة التحكم لا تعتمد عليه.
+ */
+export const getManagedCourses = async (user) => {
+  const where = user.role === "ADMIN" ? {} : { instructorId: user.id };
+
+  const courses = await prisma.course.findMany({
+    where,
+    include: { category: true, instructor: PUBLIC_INSTRUCTOR_SELECT },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return { courses: await withViewableThumbnails(courses), total: courses.length };
 };
 
 export const getAllCourses = async (query) => {

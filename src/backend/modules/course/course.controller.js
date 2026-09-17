@@ -18,6 +18,15 @@ export const getAllCourses = async (req, res, next) => {
   }
 };
 
+export const getManagedCourses = async (req, res, next) => {
+  try {
+    const result = await courseService.getManagedCourses(req.user);
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getCourseById = async (req, res, next) => {
   try {
     const course = await courseService.getCourseById(req.params.id);

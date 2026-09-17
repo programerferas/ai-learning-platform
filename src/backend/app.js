@@ -67,7 +67,8 @@ const globalLimiter = rateLimit({
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 40,
-  skip: (req) => req.path === '/me', // skip /api/auth/me
+  // /me يُستدعى عند كل تحميل صفحة، و/logout يجب ألا يفشل أبداً بسبب محاولات دخول سابقة
+  skip: (req) => req.path === '/me' || req.path === '/logout',
   message: { message: "Too many auth attempts, please try again later" },
   standardHeaders: true,
   legacyHeaders: false,
