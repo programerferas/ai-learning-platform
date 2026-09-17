@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import api from "../api/axios";
 import "../css/Navbar.css";
@@ -24,14 +24,31 @@ export default function Navbar() {
 
   const { user, setUser } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
 
   const isActive = (path) => location.pathname === path;
 
+  // يجب انتظار الطلب قبل أي تنقّل: إعادة تحميل الصفحة قبل وصول الرد
+  // تُلغي الطلب فلا يُحذف الكوكي ويعود المستخدم مسجَّلاً بعد التحديث.
   const logout = async () => {
-    await api.post("/auth/logout"); // clears the httpOnly cookie
-    setUser(null);
+    try {
+      await api.post("/auth/logout"); // clears the httpOnly cookie
+    } catch (err) {
+      // نُظهر سبب الفشل بدل ابتلاعه: الحالة، الرسالة، والعنوان الذي حاولنا الوصول إليه
+      console.error("logout FAILED", {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message,
+        url: `${api.defaults.baseURL}/auth/logout`,
+      });
+    } finally {
+      // حتى لو فشل الطلب (شبكة، 429...) نُنهي الجلسة في الواجهة
+      setUser(null);
+      setMenuOpen(false);
+      navigate("/", { replace: true });
+    }
   };
 
   return (
@@ -100,10 +117,7 @@ export default function Navbar() {
             <>
               <AvatarDropdown
                 user={user}
-                onLogout={() => {
-                  logout();
-                  window.location.reload();
-                }}
+                onLogout={logout}
                 onOpenMyCourses={() => setPanelOpen(true)}
               />
               <MyCoursesPanel isOpen={panelOpen} onClose={() => setPanelOpen(false)} />
