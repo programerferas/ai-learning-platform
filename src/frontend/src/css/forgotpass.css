@@ -77,3 +77,23 @@
   margin: -4px 0 0;
   text-align: right;
 }
+/* ── MOBILE ── */
+@media (max-width: 480px) {
+  .forgot-password-container {
+    margin: 32px 16px;
+    padding: 28px 20px;
+    max-width: none;
+  }
+
+  .forgot-password-container h2 {
+    font-size: 21px;
+  }
+
+  .forgot-password-container input {
+    font-size: 16px; /* prevents iOS from zooming into the field */
+  }
+
+  .forgot-password-container button {
+    min-height: 48px;
+  }
+}

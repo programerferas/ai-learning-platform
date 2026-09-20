@@ -920,3 +920,200 @@ html { direction: rtl; }
   background: var(--color-cream);
   height: 100vh;
 }
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+/* bottom nav items are now buttons — keep them looking like the original links */
+.mobile-nav__item {
+  background: none;
+  border: none;
+  cursor: pointer;
+  flex: 1;
+  min-height: 56px;
+  font-family: var(--font-main);
+}
+
+/* ── Tablet: single column, sidebar cards side by side ── */
+@media (max-width: 1023px) {
+  .main-column {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 12px;
+  }
+
+  .video-player,
+  .ai-chat {
+    width: 100%;
+  }
+
+  .video-player {
+    height: auto;
+  }
+
+  .col-sidebar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+}
+
+/* ── Phone ── */
+@media (max-width: 767px) {
+  .lesson-page {
+    padding-bottom: 84px; /* keep content clear of the fixed bottom nav */
+  }
+
+  .main-column {
+    padding: 10px;
+  }
+
+  .col-main {
+    gap: 10px;
+  }
+
+  .col-sidebar {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .video-player {
+    border-radius: var(--radius-xl);
+  }
+
+  /* the controls overlay takes ~40% of a 16:9 phone-width player, so keep the
+     play button centred in the area above it instead of on top of the title */
+  .video-player__play-btn {
+    bottom: 38%;
+  }
+
+  .video-player__play-circle {
+    width: 60px;
+    height: 60px;
+  }
+
+  .video-player__play-circle .material-symbols-outlined {
+    font-size: 2.4rem;
+  }
+
+  .video-player__controls {
+    padding: 0.85rem 0.9rem 0.75rem;
+  }
+
+  .video-player__info {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .video-player__title {
+    font-size: 0.95rem;
+  }
+
+  .video-player__subtitle {
+    display: none; /* the description is repeated in the curriculum card below */
+  }
+
+  .video-player__bottom-bar {
+    margin-top: 0.5rem;
+  }
+
+  .video-icon-btn {
+    min-width: 40px;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .progress-bar {
+    height: 8px;
+  }
+
+  .progress-bar__thumb {
+    opacity: 1; /* no hover on touch — always show the scrub handle */
+  }
+
+  .ai-chat {
+    height: 440px;
+  }
+
+  .ai-chat__header {
+    padding: 0.75rem 1rem;
+  }
+
+  .ai-chat__messages {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .chat-bubble {
+    max-width: 88%;
+    font-size: 0.95rem;
+    padding: 0.8rem 1rem;
+  }
+
+  .ai-chat__input-area {
+    padding: 0.75rem 1rem;
+  }
+
+  .ai-chat__input {
+    font-size: 16px; /* prevents iOS from zooming into the field */
+    padding: 0.9rem 1rem 0.9rem 3.5rem;
+  }
+
+  .progress-card {
+    height: auto;
+    padding: 1.25rem;
+  }
+
+  .progress-card__value {
+    font-size: 1.25rem;
+  }
+
+  .curriculum {
+    height: auto;
+    max-height: 380px;
+  }
+
+  .curriculum__header {
+    padding: 0.85rem 1rem;
+  }
+
+  .lesson-item {
+    padding: 0.85rem;
+    min-height: 56px;
+  }
+
+  .lesson-item__name {
+    white-space: normal;
+    line-height: 1.4;
+  }
+
+  .instructor-card {
+    height: auto;
+    padding: 1.25rem;
+  }
+
+  .instructor-card__mail-btn {
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .summary-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+  }
+
+  .summary-modal {
+    max-height: 88vh;
+    max-height: 88dvh;
+  }
+
+  .mobile-nav {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

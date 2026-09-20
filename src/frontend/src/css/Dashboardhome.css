@@ -159,10 +159,6 @@
 
 /* Tablet and up */
 @media (min-width: 600px) {
-  .stats-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-
   .quick-actions {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -170,8 +166,55 @@
 
 /* Desktop */
 @media (min-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
   .dashboard-grid {
     grid-template-columns: 2fr 1fr;
     align-items: start;
+  }
+}
+/* ── MOBILE ── */
+@media (max-width: 599px) {
+  .page-heading {
+    font-size: 26px;
+    margin-bottom: 16px;
+  }
+
+  .stats-grid {
+    gap: 10px;
+  }
+
+  .stat-card {
+    padding: 14px 12px;
+    gap: 10px;
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .stat-value {
+    font-size: 18px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+  }
+
+  .activity-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .activity-action {
+    flex: none;
+  }
+
+  .btn {
+    min-height: 44px;
   }
 }

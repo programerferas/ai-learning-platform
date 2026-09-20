@@ -212,3 +212,30 @@
     flex: 1;
   }
 }
+/* ── MOBILE ── */
+@media (max-width: 599px) {
+  .page-header h1 {
+    font-size: 20px;
+  }
+
+  .header-actions .btn {
+    min-height: 40px;
+  }
+
+  .card {
+    padding: 14px 12px;
+  }
+
+  .review-item {
+    padding: 12px;
+  }
+
+  .review-actions .btn {
+    min-height: 40px;
+  }
+
+  .filter-btn {
+    min-height: 38px;
+    padding: 6px 8px;
+  }
+}

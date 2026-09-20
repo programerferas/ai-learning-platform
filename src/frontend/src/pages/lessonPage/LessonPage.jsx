@@ -1,4 +1,4 @@
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { getLessonById } from "../../api/Lesson";
 import { getEnrollmentByCourse } from "../../api/enrollments";
@@ -14,28 +14,33 @@ import Footer from "../../components/Footer";
 
 /* ── Mobile Bottom Navigation ── */
 function MobileNav() {
+  const navigate = useNavigate();
+  const scrollTo = (selector) =>
+    document.querySelector(selector)?.scrollIntoView({ behavior: "smooth", block: "start" });
+
   const items = [
-    { icon: "play_circle",           label: "الدروس",  active: true  },
-    { icon: "format_list_bulleted",  label: "المنهج",  active: false },
-    { icon: "chat",                  label: "المساعد", active: false },
-    { icon: "person",                label: "حسابي",   active: false },
+    { icon: "play_circle",          label: "الدروس",  active: true,  onClick: () => scrollTo(".video-player") },
+    { icon: "format_list_bulleted", label: "المنهج",  active: false, onClick: () => scrollTo(".curriculum") },
+    { icon: "chat",                 label: "المساعد", active: false, onClick: () => document.querySelector(".summary-btn")?.click() },
+    { icon: "person",               label: "حسابي",   active: false, onClick: () => navigate("/account-settings") },
   ];
 
   return (
     <nav className="mobile-nav glass-panel">
       {items.map((item) => (
-        <a
+        <button
           key={item.label}
-          href="#"
+          type="button"
           className={`mobile-nav__item ${
             item.active ? "mobile-nav__item--active" : "mobile-nav__item--default"
           }`}
+          onClick={item.onClick}
         >
           <span className={`material-symbols-outlined ${item.active ? "icon-filled" : ""}`}>
             {item.icon}
           </span>
           <span className="mobile-nav__label">{item.label}</span>
-        </a>
+        </button>
       ))}
     </nav>
   );

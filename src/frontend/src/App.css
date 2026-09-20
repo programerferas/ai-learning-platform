@@ -37,3 +37,24 @@
   opacity: 1;
   transform: translate(0);
 }
+
+
+/* ── MOBILE BASE ──
+   Safety net against horizontal scrolling on phones; real causes are fixed
+   per page, this only guards against unexpectedly long content. Applied to
+   <html> only so position: sticky keeps working inside <body>. */
+@media (max-width: 767px) {
+  html {
+    overflow-x: hidden;
+  }
+
+  body {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  img,
+  video,
+  iframe {
+    max-width: 100%;
+  }
+}

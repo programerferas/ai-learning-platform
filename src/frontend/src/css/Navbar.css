@@ -260,3 +260,89 @@
     display: flex;
   }
 }
+/* ── MOBILE ── */
+.navbar__mobile-link--active {
+  color: #c19025;
+}
+
+.navbar__mobile-link--danger {
+  color: rgba(224, 112, 112, 0.85);
+}
+
+.navbar__mobile-link--danger:hover {
+  color: #e07070;
+  background: rgba(224, 112, 112, 0.08);
+}
+
+/* hamburger turns into an X while the menu is open */
+.navbar__hamburger--open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.navbar__hamburger--open span:nth-child(2) { opacity: 0; }
+.navbar__hamburger--open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+@media (max-width: 900px) {
+  .navbar {
+    padding: 0 16px;
+  }
+
+  .navbar__container {
+    gap: 12px;
+  }
+
+  .navbar__brand span {
+    font-size: 28px;
+    letter-spacing: 0.1em;
+  }
+
+  /* keep the avatar (account settings / my courses / logout) reachable on phones;
+     guest buttons move into the hamburger menu instead */
+  .navbar__actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .navbar__actions .navbar__btn {
+    display: none;
+  }
+
+  .navbar__hamburger {
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .navbar__hamburger span {
+    transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease;
+  }
+
+  .navbar__mobile {
+    max-height: calc(100vh - 68px);
+    max-height: calc(100dvh - 68px);
+    overflow-y: auto;
+    padding: 12px 16px 20px;
+  }
+
+  .navbar__mobile-link {
+    padding: 13px 16px;
+    min-height: 48px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+  }
+
+  .navbar__mobile-link--primary {
+    justify-content: center;
+    margin-top: 8px;
+  }
+
+  .avatar-dropdown__menu {
+    max-width: calc(100vw - 24px);
+  }
+}
+
+@media (max-width: 400px) {
+  .navbar__brand span {
+    font-size: 24px;
+  }
+}

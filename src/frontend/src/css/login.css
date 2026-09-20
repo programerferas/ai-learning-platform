@@ -233,12 +233,39 @@
 
 /* ── Responsive ── */
 @media (max-width: 480px) {
+  .login-wrapper {
+    padding: 16px;
+  }
+
   .login-card {
     padding: 28px 20px;
     border-radius: 16px;
   }
 
   .login-brand {
+    font-size: 30px;
+  }
+
+  .login-subtitle {
+    font-size: 15px;
+    margin-bottom: 22px;
+  }
+
+  .login-input {
+    font-size: 16px; /* prevents iOS from zooming into the field */
+    padding: 12px 14px;
+  }
+
+  .login-btn {
+    padding: 14px;
+    font-size: 15px;
+  }
+}
+@media (max-width: 480px) {
+  /* comfortable tap target for the show/hide password toggle */
+  .login-eye {
+    left: 6px;
+    padding: 8px;
     font-size: 18px;
   }
 }

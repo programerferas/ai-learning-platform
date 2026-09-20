@@ -275,3 +275,70 @@ td select:focus {
     align-items: flex-start;
   }
 }
+/* ── MOBILE (shared admin table/modal tuning) ── */
+@media (max-width: 599px) {
+  .page-header h1,
+  .page-header-h1 {
+    font-size: 20px;
+  }
+
+  .page-header > .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .card {
+    padding: 14px 12px;
+  }
+
+  .card-header h3 {
+    font-size: 15px;
+  }
+
+  .search-bar {
+    min-height: 44px;
+  }
+
+  .search-bar input,
+  .search-bar-input,
+  .filter-select {
+    font-size: 16px; /* prevents iOS from zooming into the field */
+  }
+
+  /* wide tables scroll inside their card; a soft edge hints there is more */
+  .table-wrap {
+    margin: 0 -12px;
+    padding: 0 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  thead th,
+  tbody td {
+    padding: 10px 6px;
+    font-size: 13px;
+  }
+
+  .btn-sm {
+    min-height: 36px;
+    padding: 6px 10px;
+  }
+
+  .pagination .btn {
+    min-height: 36px;
+  }
+
+  .modal {
+    max-height: 92vh;
+    max-height: 92dvh;
+  }
+
+  .modal-body input,
+  .modal-body textarea,
+  .modal-body select {
+    font-size: 16px; /* prevents iOS from zooming into the field */
+  }
+
+  .modal-footer .btn {
+    min-height: 46px;
+  }
+}

@@ -16,7 +16,7 @@
 .settings-close {
   background: none;
   border: none;
-  margin-right: 1000px;
+  align-self: flex-end; /* left edge in RTL — replaces a 1000px margin that overflowed the page */
   font-size: 30px;
   color: #c19025;
   cursor: pointer;
@@ -131,4 +131,39 @@
 .btn-save:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+/* ── MOBILE ── */
+@media (max-width: 600px) {
+  .settings-page {
+    padding: 1.25rem 1rem 2rem;
+  }
+
+  .settings-container {
+    gap: 1rem;
+  }
+
+  .settings-close {
+    font-size: 26px;
+    padding: 0.25rem 0.6rem;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .settings-title {
+    font-size: 1.5rem;
+  }
+
+  .settings-card {
+    padding: 1.25rem;
+  }
+
+  .form-group input {
+    font-size: 16px; /* prevents iOS from zooming into the field */
+    padding: 0.8rem 0.9rem;
+  }
+
+  .btn-save {
+    align-self: stretch;
+    padding: 0.85rem 1rem;
+  }
 }

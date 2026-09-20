@@ -622,3 +622,57 @@
     padding: 3.5rem 1.5rem 6rem;
   }
 }
+/* ── MOBILE ── */
+@media (max-width: 680px) {
+  .contact-hero {
+    height: auto;
+    padding: 6.5rem 1.25rem 5.5rem;
+  }
+
+  .contact-hero p {
+    font-size: 0.95rem;
+  }
+
+  .hero-float-icons {
+    gap: 1rem;
+    margin-top: 1.75rem;
+  }
+
+  .hero-circle.c1 { width: 260px; height: 260px; }
+  .hero-circle.c3 { display: none; }
+
+  .info-card,
+  .social-card {
+    padding: 1.4rem 1.25rem;
+  }
+
+  .form-card {
+    padding: 1.75rem 1.25rem;
+    border-radius: 16px;
+  }
+
+  .form-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    font-size: 16px; /* prevents iOS from zooming into the field */
+    padding: 0.85rem 1rem;
+  }
+
+  .submit-btn {
+    min-height: 52px;
+  }
+
+  .social-btn {
+    min-height: 60px;
+    padding: 0.8rem 0.3rem;
+    font-size: 0.8rem;
+  }
+
+  .login-required {
+    align-items: flex-start;
+  }
+}

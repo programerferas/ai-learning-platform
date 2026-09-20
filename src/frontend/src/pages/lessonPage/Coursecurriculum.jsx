@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getLessonsByCourse } from "../../api/Lesson";
 import { useLessonContext } from "../lessonPage/Lessoncontext";
@@ -8,6 +8,8 @@ export default function CourseCurriculum({ currentLessonId, courseId }) {
   const navigate = useNavigate();
   const [lessons, setLessons] = useState([]);
   const [loading, setLoading] = useState(true);
+  const quizCtaRef = useRef(null);
+  const wasAllCompleted = useRef(false);
 
   useEffect(() => {
     if (!courseId) return;
@@ -24,6 +26,16 @@ const handleLessonClick = (lesson, isUnlocked) => {
 
   const allCompleted =
     lessons.length > 0 && lessons.every((l) => completedIds.includes(l.id));
+
+  // When the student finishes the last lesson, bring the quiz button into view.
+  // Only fires on the false → true transition, not when the page loads already complete.
+  useEffect(() => {
+    if (allCompleted && !wasAllCompleted.current && quizCtaRef.current) {
+      quizCtaRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      quizCtaRef.current.querySelector("button")?.focus({ preventScroll: true });
+    }
+    wasAllCompleted.current = allCompleted;
+  }, [allCompleted]);
 
   if (loading) return <div>جاري التحميل...</div>;
 
@@ -76,7 +88,7 @@ const handleLessonClick = (lesson, isUnlocked) => {
       </div>
 
       {allCompleted && (
-        <div className="curriculum__quiz-cta">
+        <div className="curriculum__quiz-cta" ref={quizCtaRef}>
           <button
             className="quiz-cta-btn"
             onClick={() => navigate(`/quiz/${courseId}`)}

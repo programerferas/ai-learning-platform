@@ -93,36 +93,46 @@
   min-width: 0;
 }
 
-/* Mobile-first: sidebar becomes a bottom nav */
+/* Mobile: sidebar becomes a horizontally scrollable tab strip pinned under
+   the navbar, so it never covers page content and all 7 tabs stay tappable. */
 @media (max-width: 599px) {
   .admin-dashboard {
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: auto auto 1fr;
     grid-template-areas:
       "header"
-      "content"
-      "sidebar";
+      "sidebar"
+      "content";
   }
 
   .admin-header1 {
     grid-area: header;
+    padding-top: 68px;
   }
 
   .admin-content {
     grid-area: content;
-    padding: 16px;
+    padding: 16px 12px 32px;
   }
 
   .admin-sidebar {
     grid-area: sidebar;
     position: sticky;
-    bottom: 0;
+    top: 68px;
+    margin-top: 0;
+    padding: 8px 12px;
     border-left: none;
-    border-top: 1px solid #e3e4d3;
-    padding: 8px;
+    border-bottom: 1px solid #e3e4d3;
     flex-direction: row;
     align-items: center;
     gap: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     z-index: 10;
+  }
+
+  .admin-sidebar::-webkit-scrollbar {
+    display: none;
   }
 
   .admin-brand {
@@ -131,23 +141,26 @@
 
   .admin-nav {
     flex-direction: row;
-    flex: 1;
-    justify-content: space-between;
-    gap: 0;
+    gap: 6px;
+    width: max-content;
   }
 
   .admin-nav-link {
-    flex: 1;
-    text-align: center;
-    padding: 8px 4px;
-    font-size: 12px;
+    flex: 0 0 auto;
+    padding: 9px 14px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 14px;
     border-right: none;
-    border-radius: 0.25rem;
+    border-radius: 9999px;
+    white-space: nowrap;
   }
 
   .admin-nav-link--active {
     border-right: none;
-    border-top: 3px solid #d6a325;
+    background: #350a38;
+    color: #ffffff;
   }
 }
 

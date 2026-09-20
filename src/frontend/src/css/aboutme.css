@@ -80,7 +80,9 @@
    GLOBAL
 =========================== */
 
-section {
+/* Scoped to the About page — previously a bare `section` selector that
+   leaked a 100vh height into every page of the bundle. */
+.about-page section {
   position: relative;
   z-index: 2;
   height: 100vh;
@@ -400,5 +402,105 @@ section {
 
   .who-content p {
     font-size: 18px;
+  }
+}
+/* ── MOBILE ── */
+@media (max-width: 768px) {
+  .about-page section {
+    height: auto;
+    min-height: 0;
+  }
+
+  .who-we-are {
+    padding: 110px 6% 60px;
+    gap: 40px;
+  }
+
+  .pattern-grid {
+    grid-template-columns: repeat(3, 64px);
+    gap: 14px;
+  }
+
+  .pattern-box {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+  }
+
+  .pattern-box span {
+    width: 14px;
+    height: 14px;
+  }
+
+  .who-content h2,
+  .services-section h2,
+  .message-section h2 {
+    font-size: 34px;
+    margin-bottom: 16px;
+  }
+
+  .who-content p {
+    font-size: 17px;
+    line-height: 1.9;
+  }
+
+  .services-section,
+  .message-section {
+    padding: 60px 6%;
+  }
+
+  .section-heading {
+    margin-bottom: 32px;
+    text-align: center;
+  }
+
+  .services-grid {
+    gap: 20px;
+  }
+
+  .service-card {
+    padding: 32px 22px;
+    border-radius: 22px;
+  }
+
+  .service-icon {
+    width: 68px;
+    height: 68px;
+    font-size: 28px;
+    margin-bottom: 18px;
+    border-radius: 18px;
+  }
+
+  .service-card h3 {
+    font-size: 21px;
+    margin-bottom: 12px;
+  }
+
+  .service-card p {
+    font-size: 15px;
+  }
+
+  .message-card {
+    padding: 36px 22px 0;
+    border-radius: 24px;
+  }
+
+  .quote {
+    font-size: 60px;
+    margin-bottom: 8px;
+  }
+
+  .message-card p {
+    font-size: 19px;
+    line-height: 1.9;
+  }
+
+  .line {
+    margin: 24px auto 0;
+  }
+
+  /* huge blurred blobs are expensive to paint on phones */
+  .blob {
+    filter: blur(80px);
   }
 }

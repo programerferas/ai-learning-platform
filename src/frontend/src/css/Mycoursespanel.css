@@ -284,3 +284,27 @@
   0%   { background-position: -400px 0; }
   100% { background-position:  400px 0; }
 }
+/* ── MOBILE ── */
+@media (max-width: 768px) {
+  .mcp {
+    height: 100dvh;
+  }
+
+  .mcp__header {
+    padding: 16px;
+  }
+
+  .mcp__body {
+    padding: 16px;
+  }
+
+  .mcp__close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mcp-card__title {
+    white-space: normal;
+    line-height: 1.4;
+  }
+}

@@ -30,6 +30,14 @@ export default function Navbar() {
 
   const isActive = (path) => location.pathname === path;
 
+  // Close the mobile menu after navigating so it never lingers over the new page
+  // (state adjusted during render, per React's guidance, instead of in an effect)
+  const [menuPath, setMenuPath] = useState(location.pathname);
+  if (menuPath !== location.pathname) {
+    setMenuPath(location.pathname);
+    setMenuOpen(false);
+  }
+
   // يجب انتظار الطلب قبل أي تنقّل: إعادة تحميل الصفحة قبل وصول الرد
   // تُلغي الطلب فلا يُحذف الكوكي ويعود المستخدم مسجَّلاً بعد التحديث.
   const logout = async () => {
@@ -137,8 +145,10 @@ export default function Navbar() {
 
       {/* Mobile Hamburger */}
       <button
-        className="navbar__hamburger"
+        className={`navbar__hamburger ${menuOpen ? "navbar__hamburger--open" : ""}`}
         onClick={() => setMenuOpen(!menuOpen)}
+        aria-label={menuOpen ? "إغلاق القائمة" : "فتح القائمة"}
+        aria-expanded={menuOpen}
       >
         <span></span>
         <span></span>
@@ -148,49 +158,56 @@ export default function Navbar() {
       {/* Mobile Menu */}
       {menuOpen && (
         <div className="navbar__mobile">
-          <Link
-            to="/"
-            className="navbar__mobile-link"
-            onClick={() => setMenuOpen(false)}
-          >
-            الصفحة الرئيسية
-          </Link>
-          <Link
-            to="/category"
-            className="navbar__mobile-link"
-            onClick={() => setMenuOpen(false)}
-          >
-            الفئات
-          </Link>
-          <Link
-            to="/courses"
-            className="navbar__mobile-link"
-            onClick={() => setMenuOpen(false)}
-          >
-            الدورات
-          </Link>
+          {[
+            { to: "/", label: "الصفحة الرئيسية" },
+            { to: "/category", label: "الفئات" },
+            { to: "/courses", label: "الدورات" },
+            { to: "/aboutme", label: "من نحن" },
+            { to: "/contact", label: "اتصل بنا" },
+          ].map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`navbar__mobile-link ${isActive(item.to) ? "navbar__mobile-link--active" : ""}`}
+              onClick={() => setMenuOpen(false)}
+            >
+              {item.label}
+            </Link>
+          ))}
           {user && (user.role?.toUpperCase?.() === "ADMIN") && (
             <Link
               to="/admin"
-              className="navbar__mobile-link"
+              className={`navbar__mobile-link ${isActive("/admin") ? "navbar__mobile-link--active" : ""}`}
               onClick={() => setMenuOpen(false)}
             >
               لوحة التحكم
             </Link>
           )}
-          <Link
-            to="/aboutme"
-            className="navbar__mobile-link"
-            onClick={() => setMenuOpen(false)}
-          >
-            من نحن
-          </Link>
 
           <div className="navbar__mobile-divider" />
           {user ? (
-            <button onClick={logout} className="navbar__mobile-link">
-              تسجيل الخروج
-            </button>
+            <>
+              <Link
+                to="/account-settings"
+                className="navbar__mobile-link"
+                onClick={() => setMenuOpen(false)}
+              >
+                إعدادات الحساب
+              </Link>
+              <button
+                type="button"
+                className="navbar__mobile-link"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setPanelOpen(true);
+                }}
+              >
+                دوراتي
+              </button>
+              <button onClick={logout} className="navbar__mobile-link navbar__mobile-link--danger">
+                تسجيل الخروج
+              </button>
+            </>
           ) : (
             <>
               <Link
@@ -198,14 +215,14 @@ export default function Navbar() {
                 className="navbar__mobile-link"
                 onClick={() => setMenuOpen(false)}
               >
-                Sign In
+                تسجيل الدخول
               </Link>
               <Link
                 to="/register"
                 className="navbar__mobile-link navbar__mobile-link--primary"
                 onClick={() => setMenuOpen(false)}
               >
-                Get Started
+                ابدأ التعلم الآن
               </Link>
             </>
           )}

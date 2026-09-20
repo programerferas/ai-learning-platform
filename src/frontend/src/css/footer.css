@@ -8,3 +8,11 @@
   border-top: 3px solid #CE9C25;
 }
 
+
+@media (max-width: 767px) {
+  .footer {
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+}

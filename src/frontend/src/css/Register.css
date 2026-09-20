@@ -248,12 +248,31 @@
 
 /* ── Responsive ── */
 @media (max-width: 480px) {
+  .auth-wrapper {
+    padding: 16px;
+  }
+
   .auth-card {
     padding: 28px 20px;
     border-radius: 16px;
   }
 
   .auth-brand {
-    font-size: 18px;
+    font-size: 30px;
+  }
+
+  .auth-subtitle {
+    font-size: 15px;
+    margin-bottom: 22px;
+  }
+
+  .auth-input {
+    font-size: 16px; /* prevents iOS from zooming into the field */
+    padding: 12px 14px;
+  }
+
+  .auth-btn {
+    padding: 14px;
+    font-size: 15px;
   }
 }
